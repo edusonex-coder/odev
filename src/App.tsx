@@ -21,6 +21,7 @@ import QuestionDetail from "./pages/QuestionDetail";
 import Premium from "./pages/Premium";
 import AdminPanel from "./pages/AdminPanel";
 import ClassDetail from "./pages/ClassDetail";
+import AssignmentDetail from "./pages/AssignmentDetail";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="upgrade" element={<Premium />} />
               <Route path="admin" element={<AdminPanel />} /> {/* Admin Panel Rotası */}
               <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
+              <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
             </Route>
 
             <Route
@@ -67,6 +69,7 @@ const App = () => (
             >
               <Route index element={<TeacherPanel />} />
               <Route path="class/:id" element={<ClassDetail />} /> {/* Teacher Class Detail */}
+              <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Teacher Assignment Detail */}
             </Route>
 
             <Route path="*" element={<NotFound />} />
