@@ -75,3 +75,54 @@ export async function getAIResponse(messages: { role: string; content: string }[
 
     return askAI(userMessage, systemMessage);
 }
+
+/**
+ * Sokratik Öğrenme Metodu: Öğrenciye cevabı vermez, ipuçları ve sorularla öğrenciyi cevaba ulaştırır.
+ */
+export async function askSocraticAI(
+    userMessage: string,
+    context: { question: string, subject: string, history?: { role: string, content: string }[] }
+) {
+    const systemPrompt = `
+    Sen OdevGPT'nin Sokratik Eğitmenisin. 
+    Görevin: Öğrenciye asla doğrudan cevabı söylememek! 
+    
+    KURALLAR:
+    1. Öğrencinin sorduğu "${context.subject}" konulu "${context.question}" sorusu üzerinde çalışıyorsun.
+    2. Öğrenciye cevabı vermek yerine, onu düşünmeye sevke edecek kısa, yönlendirici sorular sor.
+    3. Eğer öğrenci çok yanlış bir yoldaysa, nazikçe küçük ipuçları ver.
+    4. Adım adım ilerle. Bir seferde sadece bir konuya veya adıma odaklan.
+    5. Dilin teşvik edici, sabırlı ve pedagojik olsun.
+    6. Cevapların kısa olsun (maksimum 2-3 cümle), öğrenciyi sıkma.
+    `;
+
+    // Eğer geçmiş (history) varsa, mesajları birleştir. Yoksa sadece yeni mesajı gönder.
+    const messages = context.history
+        ? [...context.history, { role: "user" as const, content: userMessage }]
+        : [{ role: "user" as const, content: userMessage }];
+
+    // askAI fonksiyonunu mesaj listesiyle çalışacak şekilde güncelleyebiliriz veya basitçe:
+    try {
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${GROQ_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    ...messages
+                ],
+                temperature: 0.6,
+            }),
+        });
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (error) {
+        console.error("Socratic AI Error:", error);
+        throw error;
+    }
+}

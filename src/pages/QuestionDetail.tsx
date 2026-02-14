@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Clock, CheckCircle, Share2, MessageSquare, Loader2, Volume2, StopCircle } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, Share2, MessageSquare, Loader2, Volume2, StopCircle, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+import { askSocraticAI } from "@/lib/ai";
+import { toast } from "sonner";
 
 interface QuestionDetail {
     id: string;
@@ -32,6 +34,9 @@ export default function QuestionDetail() {
     const [solutions, setSolutions] = useState<Solution[]>([]);
     const [loading, setLoading] = useState(true);
     const [speakingInfo, setSpeakingInfo] = useState<{ id: string, speaking: boolean } | null>(null);
+    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+    const [inputMessage, setInputMessage] = useState("");
+    const [isThinking, setIsThinking] = useState(false);
 
     useEffect(() => {
         async function fetchQuestionData() {
@@ -91,6 +96,31 @@ export default function QuestionDetail() {
     const getPublicUrl = (path: string | null) => {
         if (!path) return null;
         return supabase.storage.from("question_images").getPublicUrl(path).data.publicUrl;
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inputMessage.trim() || !question || isThinking) return;
+
+        const userMsg = inputMessage.trim();
+        setInputMessage("");
+        setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+        setIsThinking(true);
+
+        try {
+            const response = await askSocraticAI(userMsg, {
+                question: question.question_text || "Bu bir görsel soru.",
+                subject: question.subject,
+                history: messages
+            });
+
+            setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        } catch (error) {
+            console.error("Chat error:", error);
+            toast.error("AI ile bağlantı kurulamadı.");
+        } finally {
+            setIsThinking(false);
+        }
     };
 
     if (loading) {
@@ -236,6 +266,97 @@ export default function QuestionDetail() {
                     </motion.div>
                 </div>
             </div>
+
+            {/* Sokratik Chat Bölümü */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/20 dark:to-background rounded-3xl p-6 border-2 border-indigo-100 dark:border-indigo-900 shadow-lg"
+            >
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-indigo-500 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none">
+                        <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-lg dark:text-indigo-200">Sokratik Rehber</h2>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Cevabı bulman için sana ipuçları verir</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    {messages.length === 0 ? (
+                        <div className="text-center py-10 bg-white/50 dark:bg-black/20 rounded-2xl border border-dashed border-indigo-200 dark:border-indigo-800">
+                            <MessageSquare className="w-10 h-10 mx-auto mb-3 text-indigo-300 animate-bounce" />
+                            <p className="text-sm text-indigo-600 dark:text-indigo-400 px-10">
+                                Bu soruyu çözmekte zorlanıyor musun? İlk adımın ne olmalı, bana sorabilirsin!
+                            </p>
+                        </div>
+                    ) : (
+                        messages.map((msg, idx) => (
+                            <motion.div
+                                initial={{ opacity: 0, x: msg.role === 'user' ? 20 : -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                key={idx}
+                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm ${msg.role === 'user'
+                                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                                    : 'bg-white dark:bg-card border-2 border-indigo-50 dark:border-indigo-900 rounded-tl-none'
+                                    }`}>
+                                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                                </div>
+                            </motion.div>
+                        ))
+                    )}
+                    {isThinking && (
+                        <div className="flex justify-start">
+                            <div className="bg-white dark:bg-card p-4 rounded-2xl rounded-tl-none border shadow-sm">
+                                <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <form onSubmit={handleSendMessage} className="relative group">
+                    <input
+                        type="text"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        placeholder="İpucu iste veya bir şeyler sor..."
+                        className="w-full bg-white dark:bg-background border-2 border-indigo-100 dark:border-indigo-900 rounded-2xl py-4 pl-6 pr-14 focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                    />
+                    <Button
+                        type="submit"
+                        disabled={!inputMessage.trim() || isThinking}
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-indigo-500 hover:bg-indigo-600 transition-all group-hover:scale-105"
+                    >
+                        <Send className="w-4 h-4" />
+                    </Button>
+                </form>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setInputMessage("Bu soruyu çözmeye nasıl başlamalıyım?")}
+                        className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
+                    >
+                        🚀 Nasıl başlamalıyım?
+                    </button>
+                    <button
+                        onClick={() => setInputMessage("Bana küçük bir ipucu verir misin?")}
+                        className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
+                    >
+                        💡 İpucu ver
+                    </button>
+                    <button
+                        onClick={() => setInputMessage("Hangi konuyu bilmem gerekiyor?")}
+                        className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
+                    >
+                        📚 Hangi konu bu?
+                    </button>
+                </div>
+            </motion.div>
         </div>
     );
 }
