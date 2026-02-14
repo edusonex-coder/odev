@@ -64,6 +64,16 @@ interface Announcement {
     } | null;
 }
 
+interface Assignment {
+    id: string;
+    title: string;
+    description: string | null;
+    due_date: string | null;
+    status: 'active' | 'archived';
+    created_at: string;
+    teacher_id: string;
+}
+
 export default function ClassDetail() {
     const { id } = useParams<{ id: string }>();
     const { profile, user } = useAuth();
@@ -73,14 +83,21 @@ export default function ClassDetail() {
     const [classData, setClassData] = useState<ClassData | null>(null);
     const [students, setStudents] = useState<StudentInClass[]>([]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [newAnnouncement, setNewAnnouncement] = useState("");
+    const [newAssignmentTitle, setNewAssignmentTitle] = useState("");
+    const [newAssignmentDesc, setNewAssignmentDesc] = useState("");
+    const [newAssignmentDueDate, setNewAssignmentDueDate] = useState("");
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
+    const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+    const [showAssignmentForm, setShowAssignmentForm] = useState(false);
 
     useEffect(() => {
         if (id) {
             fetchClassDetails();
             fetchAnnouncements();
+            fetchAssignments();
         }
     }, [id]);
 
@@ -161,6 +178,21 @@ export default function ClassDetail() {
         }
     };
 
+    const fetchAssignments = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('assignments')
+                .select('*')
+                .eq('class_id', id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setAssignments(data || []);
+        } catch (error) {
+            console.error("Ödevler yüklenirken hata:", error);
+        }
+    };
+
     const handleEnhanceAnnouncement = async () => {
         if (!newAnnouncement.trim()) return;
         setIsEnhancing(true);
@@ -211,6 +243,35 @@ export default function ClassDetail() {
             toast({ title: "Hata", description: "Duyuru paylaşılamadı.", variant: "destructive" });
         } finally {
             setIsPosting(false);
+        }
+    };
+
+    const handleCreateAssignment = async () => {
+        if (!newAssignmentTitle.trim() || !user || !id) return;
+        setIsCreatingAssignment(true);
+        try {
+            const { error } = await supabase
+                .from('assignments')
+                .insert({
+                    class_id: id,
+                    teacher_id: user.id,
+                    title: newAssignmentTitle,
+                    description: newAssignmentDesc,
+                    due_date: newAssignmentDueDate || null
+                });
+
+            if (error) throw error;
+
+            toast({ title: "Başarılı", description: "Ödev başarıyla oluşturuldu!" });
+            setNewAssignmentTitle("");
+            setNewAssignmentDesc("");
+            setNewAssignmentDueDate("");
+            setShowAssignmentForm(false);
+            fetchAssignments();
+        } catch (error) {
+            toast({ title: "Hata", description: "Ödev oluşturulamadı.", variant: "destructive" });
+        } finally {
+            setIsCreatingAssignment(false);
         }
     };
 
@@ -445,11 +506,104 @@ export default function ClassDetail() {
                     </Card>
                 </TabsContent>
 
-                <TabsContent value="tasks">
-                    <div className="text-center py-20 bg-white border border-dashed rounded-2xl">
-                        <ClipboardList className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                        <h3 className="text-xl font-bold text-gray-700">Ödevler Yakında</h3>
-                        <p className="text-muted-foreground max-w-sm mx-auto">Sınıf bazlı ödev ve görev atama özelliği bir sonraki güncellemede gelecek!</p>
+                <TabsContent value="tasks" className="space-y-6">
+                    {/* Assignment Controls for Teachers */}
+                    {isTeacher && !showAssignmentForm && (
+                        <Button onClick={() => setShowAssignmentForm(true)} className="w-full h-16 border-dashed border-2 bg-transparent hover:bg-gray-50 text-gray-600 gap-2">
+                            <Plus className="w-5 h-5" /> Yeni Ödev Tanımla
+                        </Button>
+                    )}
+
+                    {showAssignmentForm && (
+                        <Card className="animate-in slide-in-from-top duration-300">
+                            <CardHeader>
+                                <CardTitle>Yeni Ödev Oluştur</CardTitle>
+                                <CardDescription>Öğrencileriniz için yeni bir görev atayın.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Ödev Başlığı</label>
+                                    <Input
+                                        placeholder="Örn: Newton Yasaları Problemleri"
+                                        value={newAssignmentTitle}
+                                        onChange={(e) => setNewAssignmentTitle(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Açıklama / Detaylar</label>
+                                    <Textarea
+                                        placeholder="Ödev detaylarını ve yönergeleri buraya yazın..."
+                                        value={newAssignmentDesc}
+                                        onChange={(e) => setNewAssignmentDesc(e.target.value)}
+                                        className="min-h-[120px]"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Teslim Tarihi (Opsiyonel)</label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={newAssignmentDueDate}
+                                        onChange={(e) => setNewAssignmentDueDate(e.target.value)}
+                                    />
+                                </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-end gap-3">
+                                <Button variant="ghost" onClick={() => setShowAssignmentForm(false)}>İptal</Button>
+                                <Button onClick={handleCreateAssignment} disabled={isCreatingAssignment}>
+                                    {isCreatingAssignment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                    Ödevi Yayınla
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )}
+
+                    {/* Assignments List */}
+                    <div className="grid gap-4">
+                        {assignments.map((assignment) => (
+                            <Card key={assignment.id} className="hover:shadow-md transition-shadow">
+                                <CardContent className="p-6">
+                                    <div className="flex items-start justify-between">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-lg">{assignment.title}</h3>
+                                                {assignment.status === 'active' ? (
+                                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">AKTİF</Badge>
+                                                ) : (
+                                                    <Badge variant="secondary">ARŞİVLENMİŞ</Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground line-clamp-2">{assignment.description}</p>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="rounded-full">
+                                            <MoreVertical className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                    <div className="flex items-center gap-6 mt-6 pt-6 border-t font-medium text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="w-4 h-4" />
+                                            Son Teslim: {assignment.due_date ? new Date(assignment.due_date).toLocaleString('tr-TR') : 'Süre Sınırı Yok'}
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <Users className="w-4 h-4" />
+                                            0/ {students.length} Tamamlandı
+                                        </div>
+                                        <Button size="sm" variant="outline" className="ml-auto" onClick={() => navigate(`/dashboard/assignment/${assignment.id}`)}>
+                                            Detayları Gör
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+
+                        {assignments.length === 0 && !showAssignmentForm && (
+                            <div className="text-center py-20 bg-white border border-dashed rounded-2xl">
+                                <ClipboardList className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                                <h3 className="text-xl font-bold text-gray-700">Henüz Ödev Yok</h3>
+                                <p className="text-muted-foreground max-w-sm mx-auto">
+                                    {isTeacher ? "Öğrencilerinize ilk ödevlerini vererek öğrenme sürecini başlatın!" : "Bu sınıf için henüz bir ödev tanımlanmamış."}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
 
