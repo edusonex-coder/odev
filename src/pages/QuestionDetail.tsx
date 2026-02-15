@@ -114,7 +114,7 @@ export default function QuestionDetail() {
                         created_at: new Date().toISOString()
                     };
                     setSolutions([tempSolution]);
-                    toast.warning("Çözüm gösteriliyor (Kaydedilemedi).", { description: "Gelecekte tekrar görüntülemek için sayfayı yenilemeyin." });
+                    // Veritabanına yazılamadı uyarısı kullanıcıyı rahatsız etmemesi için kaldırıldı.
                 } else {
                     // Başarılı kayıt
                     setSolutions([solData]);
