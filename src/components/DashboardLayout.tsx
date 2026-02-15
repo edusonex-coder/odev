@@ -14,23 +14,48 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import NotificationBell from "./NotificationBell";
 
-const navItems = [
-  { icon: Home, label: "Anasayfa", path: "/dashboard" },
-  { icon: Clock, label: "Geçmişim", path: "/dashboard/history" },
-  { icon: Camera, label: "Soru Sor", path: "/dashboard/ask", accent: true },
-  { icon: User, label: "Profil", path: "/dashboard/profile" },
-];
-
 export default function DashboardLayout() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
+
+  // Role based navigation items
+  const getNavItems = () => {
+    const role = profile?.role || 'student';
+
+    if (role === 'teacher') {
+      return [
+        { icon: Home, label: "Panel", path: "/teacher" },
+        { icon: Clock, label: "Geçmiş", path: "/dashboard/history" },
+        { icon: User, label: "Profil", path: "/dashboard/profile" },
+      ];
+    }
+
+    if (role === 'parent') {
+      return [
+        { icon: Home, label: "Veli Paneli", path: "/dashboard/parent" },
+        { icon: User, label: "Profil", path: "/dashboard/profile" },
+        { icon: Settings, label: "Ayarlar", path: "/dashboard/settings" },
+      ];
+    }
+
+    // Default: Student items
+    return [
+      { icon: Home, label: "Anasayfa", path: "/dashboard" },
+      { icon: Clock, label: "Geçmişim", path: "/dashboard/history" },
+      { icon: Camera, label: "Soru Sor", path: "/dashboard/ask", accent: true },
+      { icon: User, label: "Profil", path: "/dashboard/profile" },
+    ];
+  };
+
+  const navItems = getNavItems();
+
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Top bar */}
       <header className="sticky top-0 z-40 glass border-b">
         <div className="container flex items-center justify-between h-14">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <Link to={profile?.role === 'teacher' ? '/teacher' : profile?.role === 'parent' ? '/dashboard/parent' : '/dashboard'} className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
@@ -40,22 +65,25 @@ export default function DashboardLayout() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            {(profile?.streak !== undefined) && (
+            {profile?.role === 'student' && profile?.streak !== undefined && (
               <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 text-[10px] font-bold">
                 <span>🔥</span> {profile.streak} gün
               </div>
             )}
-            {(profile?.xp !== undefined) && (
+            {profile?.role === 'student' && profile?.xp !== undefined && (
               <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50/80 border border-blue-100 text-blue-600 text-[10px] font-bold">
                 ⭐ {profile.xp} XP
               </div>
             )}
 
-            <Link to="/dashboard/premium">
-              <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer">
-                <Crown size={14} className="text-white" /> PRO
-              </div>
-            </Link>
+            {profile?.role === 'student' && (
+              <Link to="/dashboard/premium">
+                <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer">
+                  <Crown size={14} className="text-white" /> PRO
+                </div>
+              </Link>
+            )}
+
 
             <NotificationBell />
 

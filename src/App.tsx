@@ -61,11 +61,25 @@ const App = () => (
               <Route path="settings" element={<Settings />} /> {/* Settings Route */}
               <Route path="premium" element={<Premium />} />
               <Route path="upgrade" element={<Premium />} />
-              <Route path="admin" element={<AdminPanel />} /> {/* Admin Panel Rotası */}
+              <Route
+                path="admin"
+                element={
+                  <ProtectedRoute requireRole="admin">
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              /> {/* Admin Panel Rotası */}
               <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
               <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
               <Route path="leaderboard" element={<Leaderboard />} /> {/* Global Leaderboard */}
-              <Route path="parent" element={<ParentPanel />} /> {/* Parent Panel */}
+              <Route
+                path="parent"
+                element={
+                  <ProtectedRoute requireRole="parent">
+                    <ParentPanel />
+                  </ProtectedRoute>
+                }
+              /> {/* Parent Panel */}
             </Route>
 
             <Route
