@@ -39,6 +39,12 @@ export default function QuestionDetail() {
     const [inputMessage, setInputMessage] = useState("");
     const [isThinking, setIsThinking] = useState(false);
     const [isAutoSolving, setIsAutoSolving] = useState(false);
+    const autoSolveAttempted = useRef(false);
+
+    // ID her değiştiğinde (yeni soruya geçildiğinde) 'çözüldü' işaretini kaldır
+    useEffect(() => {
+        autoSolveAttempted.current = false;
+    }, [id]);
 
     useEffect(() => {
         async function fetchQuestionData() {
@@ -61,7 +67,7 @@ export default function QuestionDetail() {
                     .eq("question_id", id)
                     .order("created_at", { ascending: false });
 
-                if (sError && sError.code !== 'PGRST116') throw sError; // Çözüm yoksa hata verme
+                if (sError && sError.code !== 'PGRST116') throw sError;
                 setSolutions(sData || []);
 
             } catch (error) {
@@ -73,19 +79,20 @@ export default function QuestionDetail() {
 
         fetchQuestionData();
 
-        // Component unmount olduğunda konuşmayı durdur
         return () => {
             window.speechSynthesis.cancel();
         };
     }, [id, user]);
 
-    // Otomatik Çözümleyici (Eğer çözüm yoksa devreye girer)
+    // Otomatik Çözümleyici
     useEffect(() => {
         const autoSolve = async () => {
-            // Soru yüklendi, yükleme bitti, çözüm YOK ve henüz çözülmüyorsa
-            if (loading || !question || solutions.length > 0 || isAutoSolving) return;
+            // Guard: Döngüyü engellemek için kontrol
+            if (autoSolveAttempted.current || loading || !question || solutions.length > 0 || isAutoSolving) return;
 
+            autoSolveAttempted.current = true; // Kilidi kapat
             setIsAutoSolving(true);
+
             try {
                 toast.info("Yapay Zeka sorunu inceliyor... 🤖");
 
