@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     Users,
     Plus,
@@ -27,7 +28,9 @@ import {
     HelpCircle,
     ChevronRight,
     Star,
-    Award
+    Award,
+    Sparkles,
+    Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -72,6 +75,7 @@ export default function ParentPanel() {
     const [loading, setLoading] = useState(true);
     const [pairingCode, setPairingCode] = useState('');
     const [isPairing, setIsPairing] = useState(false);
+    const [studentActivities, setStudentActivities] = useState<any[]>([]);
 
     const selectedStudent = students.find(s => s.student_id === selectedStudentId) || students[0];
 
@@ -80,6 +84,27 @@ export default function ParentPanel() {
             fetchStudents();
         }
     }, [user]);
+
+    useEffect(() => {
+        if (selectedStudentId) {
+            fetchStudentActivities();
+        }
+    }, [selectedStudentId]);
+
+    const fetchStudentActivities = async () => {
+        if (!selectedStudentId) return;
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user?.id)
+            .ilike('content', `%${selectedStudent?.student_name}%`)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (!error && data) {
+            setStudentActivities(data);
+        }
+    };
 
     const fetchStudents = async () => {
         try {
@@ -405,13 +430,52 @@ export default function ParentPanel() {
                                             </CardTitle>
                                             <CardDescription>Yapay zeka ile olan etkileşimler</CardDescription>
                                         </CardHeader>
-                                        <CardContent>
-                                            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                                                    <Clock className="w-8 h-8 text-muted-foreground/30" />
-                                                </div>
-                                                <p className="text-muted-foreground italic text-sm max-w-xs">
-                                                    Öğrencinin soru geçmişi ve AI çözümleri güvenlik nedeniyle yakında tam rapor olarak sunulacak.
+                                        <CardContent className="p-0">
+                                            <ScrollArea className="h-[400px]">
+                                                {studentActivities.length === 0 ? (
+                                                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                                                            <Clock className="w-8 h-8 text-muted-foreground/30" />
+                                                        </div>
+                                                        <p className="text-muted-foreground italic text-sm max-w-xs px-6">
+                                                            Henüz bu öğrenci için bir aktivite kaydı yok.
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="divide-y">
+                                                        {studentActivities.map((activity, idx) => (
+                                                            <div key={activity.id} className="p-4 hover:bg-muted/30 transition-colors flex gap-4 items-start relative group">
+                                                                <div className={`
+                                                                    w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+                                                                    ${activity.title.includes('Seviye') ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}
+                                                                `}>
+                                                                    {activity.title.includes('Seviye') ? <Award className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                                                </div>
+                                                                <div className="flex-1 space-y-1">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <p className="text-sm font-bold text-gray-900">{activity.title}</p>
+                                                                        <span className="text-[10px] text-muted-foreground">
+                                                                            {format(new Date(activity.created_at), 'd MMM HH:mm', { locale: tr })}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                                                        {activity.content}
+                                                                    </p>
+                                                                </div>
+                                                                {idx === 0 && (
+                                                                    <div className="absolute top-2 right-2">
+                                                                        <Badge variant="outline" className="text-[8px] bg-green-50 text-green-700 border-green-100">YENİ</Badge>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </ScrollArea>
+                                            <div className="p-4 bg-muted/20 border-t text-center">
+                                                <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                                    <Zap className="w-3 h-3 text-yellow-500" />
+                                                    Tüm veriler yapay zeka tarafından gerçek zamanlı analiz edilmektedir.
                                                 </p>
                                             </div>
                                         </CardContent>
