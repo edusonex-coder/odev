@@ -81,43 +81,50 @@ export default function ParentPanel() {
     const selectedStudent = students.find(s => s.student_id === selectedStudentId) || students[0];
 
     useEffect(() => {
-        if (user) {
+        // user.id varsa ve seçili öğrenci yoksa veya liste boşsa çalışsın
+        if (user?.id) {
             fetchStudents();
         }
-    }, [user]);
+    }, [user?.id]); // Sadece ID değişirse çalışır (user obje referansı değişse bile)
 
     useEffect(() => {
         if (selectedStudentId) {
             fetchStudentActivities();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedStudentId]);
 
     const fetchStudentActivities = async () => {
-        if (!selectedStudentId) return;
-        const { data, error } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user?.id)
-            .ilike('content', `%${selectedStudent?.student_name}%`)
-            .order('created_at', { ascending: false })
-            .limit(10);
+        if (!selectedStudentId || !user?.id) return;
 
-        if (!error && data) {
-            setStudentActivities(data);
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                // like yerine ilike ile case-insensitive arama
+                .ilike('content', `%${selectedStudent?.student_name || ''}%`)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (!error && data) {
+                setStudentActivities(data);
+            }
+        } catch (err) {
+            console.error("Activity fetch error:", err);
         }
     };
 
     const fetchStudents = async () => {
-        if (!user?.id) return; // Kullanıcı yoksa işlem yapma
+        if (!user?.id) return;
 
         try {
             setLoading(true);
-            const { data, error } = await supabase.rpc('get_parent_students', {
-                p_parent_id: user.id // user.id kesinlikle var
-            });
+            // ARTIK PARAMETRE YOK! Backend auth.uid() kullanıyor.
+            const { data, error } = await supabase.rpc('get_parent_students');
 
             if (error) {
-                console.error('RPC Error:', error); // Detaylı hatayı gör
+                console.error('RPC Error Detailed:', JSON.stringify(error, null, 2));
                 throw error;
             }
 
@@ -138,9 +145,9 @@ export default function ParentPanel() {
 
         try {
             setIsPairing(true);
+            // SADECE KOD GÖNDERİLİYOR
             const { data, error } = await supabase.rpc('pair_student_with_parent', {
-                p_parent_id: user.id,
-                p_access_code: pairingCode.trim() // Backend zaten unique kod ile eşleşecek, UpperCase zorunlu değil ama frontend'de yapılabilir.
+                p_access_code: pairingCode.trim()
             });
 
             if (error) throw error;
