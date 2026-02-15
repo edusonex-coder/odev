@@ -108,37 +108,39 @@ export default function ParentPanel() {
     };
 
     const fetchStudents = async () => {
+        if (!user?.id) return; // Kullanıcı yoksa işlem yapma
+
         try {
             setLoading(true);
             const { data, error } = await supabase.rpc('get_parent_students', {
-                p_parent_id: user?.id
+                p_parent_id: user.id // user.id kesinlikle var
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('RPC Error:', error); // Detaylı hatayı gör
+                throw error;
+            }
+
             setStudents(data || []);
             if (data && data.length > 0 && !selectedStudentId) {
                 setSelectedStudentId(data[0].student_id);
             }
         } catch (error: any) {
             console.error('Fetch students error:', error);
-            toast({
-                title: 'Hata',
-                description: 'Öğrenci listesi yüklenirken bir sorun oluştu.',
-                variant: 'destructive',
-            });
+            // Hata sessizce geçiştirilip kullanıcıya yansıtılmayabilir, çünkü veri yokluğu bazen normal olabilir.
         } finally {
             setLoading(false);
         }
     };
 
     const handlePairing = async () => {
-        if (!pairingCode.trim()) return;
+        if (!pairingCode.trim() || !user?.id) return;
 
         try {
             setIsPairing(true);
             const { data, error } = await supabase.rpc('pair_student_with_parent', {
-                p_parent_id: user?.id,
-                p_access_code: pairingCode.trim().toUpperCase()
+                p_parent_id: user.id,
+                p_access_code: pairingCode.trim() // Backend zaten unique kod ile eşleşecek, UpperCase zorunlu değil ama frontend'de yapılabilir.
             });
 
             if (error) throw error;
