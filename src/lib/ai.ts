@@ -6,6 +6,20 @@
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+const TEACHER_PROMPT = `
+Sen OdevGPT'nin uzman eğitim koçu ve öğretmenisin.
+Görevin: Öğrencilerin sorularını sadece çözmek değil, onlara konuyu öğretmek.
+
+ÖZEL KURALLAR:
+1. Asla sadece şıkkı (A, B, C..) söyleyip geçme.
+2. Önce soruyu analiz et: Hangi konu? Hangi formüller/bilgiler gerekli?
+3. Adım adım çözüm uygula.
+4. Çözümün sonunda "Sonuç: X" şeklinde net bir sonuç belirt.
+5. Öğrenciyle samimi, motive edici ve Türkçe konuş.
+6. Eğer soru metni JSON formatında gelirse, "soru_metni", "soru_koku" ve "secenekler" alanlarını birleştirip anlamlı bir soru haline getir ve öyle çöz.
+7. Matematiksel ifadeleri anlaşılır şekilde yaz.
+`;
+
 export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.") {
     if (!GROQ_API_KEY) {
         throw new Error("AI API anahtarı bulunamadı.");
@@ -27,6 +41,11 @@ export async function askAI(prompt: string, systemPrompt: string = "Sen yardımc
                 temperature: 0.7,
             }),
         });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`AI API Hatası: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
 
         const data = await response.json();
         return data.choices[0].message.content;
@@ -70,8 +89,16 @@ export async function summarizeForStudents(content: string) {
  * compatibility wrapper for old code
  */
 export async function getAIResponse(messages: { role: string; content: string }[]) {
-    const userMessage = messages.find(m => m.role === 'user')?.content || "";
-    const systemMessage = messages.find(m => m.role === 'system')?.content || "Sen yardımcı bir eğitim asistanısın.";
+    // Kullanıcı mesajını bul
+    const userMessageObj = messages.find(m => m.role === 'user');
+    const userMessage = userMessageObj?.content || "";
+
+    // Sistem mesajını bul veya varsayılanı kullan
+    let systemMessage = messages.find(m => m.role === 'system')?.content;
+
+    if (!systemMessage) {
+        systemMessage = TEACHER_PROMPT;
+    }
 
     return askAI(userMessage, systemMessage);
 }
@@ -101,7 +128,6 @@ export async function askSocraticAI(
         ? [...context.history, { role: "user" as const, content: userMessage }]
         : [{ role: "user" as const, content: userMessage }];
 
-    // askAI fonksiyonunu mesaj listesiyle çalışacak şekilde güncelleyebiliriz veya basitçe:
     try {
         const response = await fetch(API_URL, {
             method: "POST",
@@ -118,6 +144,11 @@ export async function askSocraticAI(
                 temperature: 0.6,
             }),
         });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Socratic AI Error: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
 
         const data = await response.json();
         return data.choices[0].message.content;
