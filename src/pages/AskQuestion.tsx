@@ -233,9 +233,9 @@ export default function AskQuestion() {
       if (questionText && qData) {
         try {
           toast({
-            title: "Yapay Zeka Devrede 🤖",
-            description: "Sorunuz analiz ediliyor...",
-            duration: 2000,
+            title: "Yapay Zeka Çalışıyor �",
+            description: "Sorunuz analiz ediliyor, lütfen bekleyin...",
+            duration: 3000,
           });
 
           const aiPrompt = `Öğrenci sorusu (${selectedSubject}): ${questionText}. 
@@ -254,6 +254,12 @@ export default function AskQuestion() {
 
           if (insertError) throw insertError;
 
+          toast({
+            title: "Çözüm Hazır! 🎉",
+            description: "Yapay zeka sorunu çözdü.",
+            duration: 3000,
+          });
+
           // Soru durumunu güncelle
           await supabase.from("questions").update({ status: "ai_answered" }).eq("id", qData.id);
 
@@ -261,9 +267,9 @@ export default function AskQuestion() {
           console.error("AI Auto-Solve Hatası:", aiError);
           toast({
             title: "Otomatik Çözüm Hatası",
-            description: "Yapay zeka cevabı üretildi ancak kaydedilemedi: " + (aiError.message || "Bilinmeyen hata"),
+            description: "Hata detayı: " + (aiError?.message || aiError?.toString() || "Bilinmiyor"),
             variant: "destructive",
-            duration: 5000,
+            duration: 10000, // 10 saniye ekranda kalsın
           });
           // Hata olsa bile soru kaydedildi, devam et.
         }
