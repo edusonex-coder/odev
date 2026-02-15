@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen, Globe, Youtube, Music, FileDown, ExternalLink } from "lucide-react";
+import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen, Globe, Youtube, Music, FileDown, ExternalLink, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-illustration.png";
@@ -73,10 +73,10 @@ export default function LandingPage() {
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
-            <a href="#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
+            <a href="/#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
+            <a href="/#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
             <Link to="/blog" className="text-sm font-semibold hover:text-primary transition-colors">Blog</Link>
-            <a href="#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
+            <a href="/#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export default function LandingPage() {
       <LandingDemo />
 
       {/* How It Works */}
-      <section className="py-16 md:py-24 bg-card/50 border-y border-border/50">
+      <section id="how-it-works" className="py-16 md:py-24 bg-card/50 border-y border-border/50">
         <div className="container">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -190,8 +190,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Subjects */}
-      <section className="py-16 md:py-24 overflow-hidden">
+      {/* Subjects (Features) */}
+      <section id="features" className="py-16 md:py-24 overflow-hidden">
         <div className="container">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -305,6 +305,60 @@ export default function LandingPage() {
               <p className="text-xs opacity-60 mt-4">Kredi kartı gerekmez. İstediğin zaman iptal et.</p>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24 bg-secondary/20">
+        <div className="container px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-4">Şeffaf <span className="gradient-text">Ücretlendirme</span></h2>
+            <p className="text-muted-foreground text-lg">İhtiyacınıza uygun paketi seçin, başarıya odaklanın.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-card p-8 rounded-[2.5rem] border hover:shadow-xl transition-all flex flex-col">
+              <h3 className="text-2xl font-bold mb-2">Başlangıç</h3>
+              <p className="text-muted-foreground mb-6">Öğrenmeye başlamak isteyenler için.</p>
+              <div className="text-4xl font-black mb-6">₺0 <span className="text-base font-normal text-muted-foreground">/ay</span></div>
+              <ul className="space-y-4 mb-8 flex-grow">
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500" /> Günlük 5 Soru Hakkı</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500" /> Standart AI Çözümleri</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500" /> Topluluk Desteği</li>
+              </ul>
+              <Link to="/signup">
+                <Button variant="outline" className="w-full rounded-2xl py-6">Ücretsiz Başla</Button>
+              </Link>
+            </div>
+            {/* Pro Plan */}
+            <div className="bg-card p-8 rounded-[2.5rem] border-2 border-primary shadow-2xl relative flex flex-col transform hover:-translate-y-2 transition-all">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1 rounded-full text-xs font-bold">EN ÇOK TERCİH EDİLEN</div>
+              <h3 className="text-2xl font-bold mb-2 text-primary">Pro Paket</h3>
+              <p className="text-muted-foreground mb-6">Sınavlara hazırlanan ciddi öğrenciler için.</p>
+              <div className="text-4xl font-black mb-6">₺99 <span className="text-base font-normal text-muted-foreground">/ay</span></div>
+              <ul className="space-y-4 mb-8 flex-grow">
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Sınırsız Soru Fotoğrafı</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Sokratik Yöntemle Anlatım</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Öncelikli Öğretmen Desteği</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Reklamsız Deneyim</li>
+              </ul>
+              <Link to="/signup">
+                <Button className="w-full rounded-2xl py-6 gradient-primary shadow-glow">Hemen Başla</Button>
+              </Link>
+            </div>
+            {/* School Plan */}
+            <div className="bg-card p-8 rounded-[2.5rem] border hover:shadow-xl transition-all flex flex-col">
+              <h3 className="text-2xl font-bold mb-2">Okul / Kurum</h3>
+              <p className="text-muted-foreground mb-6">Sınıf ve okul yönetimi için özel çözümler.</p>
+              <div className="text-4xl font-black mb-6 text-center py-2 text-primary font-bold">Fiyat Alın</div>
+              <ul className="space-y-4 mb-8 flex-grow">
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-violet-500" /> Detaylı Sınıf İstatistikleri</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-violet-500" /> Öğretmen Dashboard</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-violet-500" /> Kurumsal Raporlama</li>
+              </ul>
+              <Button variant="outline" className="w-full rounded-2xl py-6">İletişime Geçin</Button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -492,10 +546,10 @@ export default function LandingPage() {
 
           <div className="flex gap-8">
             <nav className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
-              <a href="#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
+              <a href="/#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
+              <a href="/#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
               <Link to="/blog" className="text-sm font-semibold hover:text-primary transition-colors">Blog</Link>
-              <a href="#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
+              <a href="/#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
             </nav>
           </div>
 
