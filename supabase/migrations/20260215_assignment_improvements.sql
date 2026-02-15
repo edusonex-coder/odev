@@ -1,37 +1,25 @@
 -- ============================================
--- ODEVGPT: ASSIGNMENT SYSTEM IMPROVEMENTS
+-- ODEVGPT: ASSIGNMENT SYSTEM (ÖDEV SİSTEMİ)
 -- Tarih: 15 Şubat 2026
--- Amaç: Ödev oluşturma, teslim ve değerlendirme sistemini güçlendirme
 -- ============================================
 
--- 1. ASSIGNMENTS TABLE IMPROVEMENTS
--- Mevcut assignments tablosuna yeni alanlar ekle
-ALTER TABLE assignments
-ADD COLUMN IF NOT EXISTS difficulty_level TEXT CHECK (difficulty_level IN ('easy', 'medium', 'hard')) DEFAULT 'medium',
-ADD COLUMN IF NOT EXISTS auto_grade BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 100,
-ADD COLUMN IF NOT EXISTS instructions TEXT,
-ADD COLUMN IF NOT EXISTS attachments JSONB; -- Öğretmenin eklediği dosyalar
+-- 1. ASSIGNMENTS TABLE (Ödevler Ana Tablo)
+CREATE TABLE IF NOT EXISTS assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    teacher_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    due_date TIMESTAMPTZ,
+    difficulty_level TEXT CHECK (difficulty_level IN ('easy', 'medium', 'hard')) DEFAULT 'medium',
+    auto_grade BOOLEAN DEFAULT false,
+    max_score INTEGER DEFAULT 100,
+    instructions TEXT,
+    attachments JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- ============================================
--- 2. ASSIGNMENT SUBMISSIONS TABLE
--- Öğrenci ödev teslimlerini saklar
--- ============================================
--- Tablo zaten varsa, eksik kolonları ekle
-ALTER TABLE assignment_submissions
-ADD COLUMN IF NOT EXISTS submission_text TEXT,
-ADD COLUMN IF NOT EXISTS submission_files JSONB,
-ADD COLUMN IF NOT EXISTS ocr_extracted_text TEXT,
-ADD COLUMN IF NOT EXISTS status TEXT CHECK (status IN ('pending', 'graded', 'returned')) DEFAULT 'pending',
-ADD COLUMN IF NOT EXISTS score INTEGER,
-ADD COLUMN IF NOT EXISTS feedback TEXT,
-ADD COLUMN IF NOT EXISTS ai_feedback TEXT,
-ADD COLUMN IF NOT EXISTS ai_score INTEGER,
-ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ DEFAULT NOW(),
-ADD COLUMN IF NOT EXISTS graded_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS graded_by UUID REFERENCES profiles(id);
-
--- Eğer tablo yoksa oluştur
+-- 2. ASSIGNMENT SUBMISSIONS TABLE (Öğrenci Teslimleri)
 CREATE TABLE IF NOT EXISTS assignment_submissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     assignment_id UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
@@ -50,15 +38,7 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
     UNIQUE(assignment_id, student_id)
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON assignment_submissions(assignment_id);
-CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id);
-CREATE INDEX IF NOT EXISTS idx_submissions_status ON assignment_submissions(status);
-
--- ============================================
--- 3. SUBMISSION FEEDBACK TABLE
--- Öğretmenlerin ödev üzerine detaylı yorumları
--- ============================================
+-- 3. SUBMISSION FEEDBACK TABLE (Detaylı Yorumlar)
 CREATE TABLE IF NOT EXISTS submission_feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     submission_id UUID NOT NULL REFERENCES assignment_submissions(id) ON DELETE CASCADE,
@@ -69,12 +49,12 @@ CREATE TABLE IF NOT EXISTS submission_feedback (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_feedback_submission ON submission_feedback(submission_id);
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON assignment_submissions(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id);
 
--- ============================================
 -- 4. RPC: GET ASSIGNMENT SUBMISSIONS
--- Bir ödevin tüm teslimlerini detaylı şekilde getirir
--- ============================================
 CREATE OR REPLACE FUNCTION get_assignment_submissions(p_assignment_id UUID)
 RETURNS TABLE (
     submission_id UUID,
@@ -115,10 +95,7 @@ BEGIN
 END;
 $$;
 
--- ============================================
 -- 5. RPC: SUBMIT ASSIGNMENT
--- Öğrencinin ödev teslim etmesi
--- ============================================
 CREATE OR REPLACE FUNCTION submit_assignment(
     p_assignment_id UUID,
     p_student_id UUID,
@@ -133,7 +110,6 @@ AS $$
 DECLARE
     v_submission_id UUID;
 BEGIN
-    -- Ödev teslim et (varsa güncelle, yoksa ekle)
     INSERT INTO assignment_submissions (
         assignment_id,
         student_id,
@@ -162,10 +138,7 @@ BEGIN
 END;
 $$;
 
--- ============================================
--- 6. RPC: GRADE SUBMISSION
--- Öğretmenin ödevi değerlendirmesi
--- ============================================
+-- 6. RPC: GRADE SUBMISSION (With XP rewards)
 CREATE OR REPLACE FUNCTION grade_submission(
     p_submission_id UUID,
     p_teacher_id UUID,
@@ -178,9 +151,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_student_id UUID;
-    v_assignment_id UUID;
 BEGIN
-    -- Submission'ı güncelle
     UPDATE assignment_submissions
     SET 
         score = p_score,
@@ -189,158 +160,52 @@ BEGIN
         graded_at = NOW(),
         graded_by = p_teacher_id
     WHERE id = p_submission_id
-    RETURNING student_id, assignment_id INTO v_student_id, v_assignment_id;
+    RETURNING student_id INTO v_student_id;
     
-    -- Öğrenciye XP ver (başarı bonusu)
+    -- XP Ödülleri (Fix: amount kolonunu kullanıyoruz)
     IF p_score >= 70 THEN
-        -- 70+ puan aldıysa bonus XP
-        INSERT INTO xp_logs (user_id, xp_change, reason)
+        INSERT INTO xp_logs (user_id, amount, reason)
         VALUES (v_student_id, 100, 'Ödev başarısı: ' || p_score || ' puan');
-        
-        UPDATE profiles
-        SET xp = xp + 100
-        WHERE id = v_student_id;
+        UPDATE profiles SET xp = xp + 100 WHERE id = v_student_id;
     ELSIF p_score >= 50 THEN
-        -- 50-69 arası normal XP
-        INSERT INTO xp_logs (user_id, xp_change, reason)
-        VALUES (v_student_id, 50, 'Ödev tamamlandı: ' || p_score || ' puan');
-        
-        UPDATE profiles
-        SET xp = xp + 50
-        WHERE id = v_student_id;
+        INSERT INTO xp_logs (user_id, amount, reason)
+        VALUES (v_student_id, 50, 'Ödev tamamlandı');
+        UPDATE profiles SET xp = xp + 50 WHERE id = v_student_id;
     END IF;
     
     RETURN TRUE;
 END;
 $$;
 
--- ============================================
--- 7. RPC: GET STUDENT ASSIGNMENTS
--- Bir öğrencinin tüm ödevlerini ve teslim durumlarını getirir
--- ============================================
-CREATE OR REPLACE FUNCTION get_student_assignments(p_student_id UUID)
-RETURNS TABLE (
-    assignment_id UUID,
-    assignment_title TEXT,
-    assignment_description TEXT,
-    difficulty_level TEXT,
-    due_date TIMESTAMPTZ,
-    max_score INTEGER,
-    class_name TEXT,
-    submission_id UUID,
-    submission_status TEXT,
-    score INTEGER,
-    submitted_at TIMESTAMPTZ
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        a.id AS assignment_id,
-        a.title AS assignment_title,
-        a.description AS assignment_description,
-        a.difficulty_level,
-        a.due_date,
-        a.max_score,
-        c.name AS class_name,
-        s.id AS submission_id,
-        s.status AS submission_status,
-        s.score,
-        s.submitted_at
-    FROM assignments a
-    JOIN classes c ON c.id = a.class_id
-    JOIN class_students cs ON cs.class_id = c.id
-    LEFT JOIN assignment_submissions s ON s.assignment_id = a.id AND s.student_id = p_student_id
-    WHERE cs.student_id = p_student_id
-    ORDER BY a.due_date DESC;
-END;
-$$;
-
--- ============================================
--- 8. RLS POLICIES
--- ============================================
-
--- Assignment Submissions
+-- 7. RLS POLICIES
+ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assignment_submissions ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Students can view their own submissions" ON assignment_submissions;
-CREATE POLICY "Students can view their own submissions"
-ON assignment_submissions FOR SELECT
-USING (student_id = auth.uid());
-
-DROP POLICY IF EXISTS "Students can insert their own submissions" ON assignment_submissions;
-CREATE POLICY "Students can insert their own submissions"
-ON assignment_submissions FOR INSERT
-WITH CHECK (student_id = auth.uid());
-
-DROP POLICY IF EXISTS "Students can update their own pending submissions" ON assignment_submissions;
-CREATE POLICY "Students can update their own pending submissions"
-ON assignment_submissions FOR UPDATE
-USING (student_id = auth.uid() AND status = 'pending');
-
-DROP POLICY IF EXISTS "Teachers can view submissions in their classes" ON assignment_submissions;
-CREATE POLICY "Teachers can view submissions in their classes"
-ON assignment_submissions FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM assignments a
-        JOIN classes c ON c.id = a.class_id
-        WHERE a.id = assignment_id AND c.teacher_id = auth.uid()
-    )
-);
-
-DROP POLICY IF EXISTS "Teachers can update submissions in their classes" ON assignment_submissions;
-CREATE POLICY "Teachers can update submissions in their classes"
-ON assignment_submissions FOR UPDATE
-USING (
-    EXISTS (
-        SELECT 1 FROM assignments a
-        JOIN classes c ON c.id = a.class_id
-        WHERE a.id = assignment_id AND c.teacher_id = auth.uid()
-    )
-);
-
--- Submission Feedback
 ALTER TABLE submission_feedback ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Students can view feedback on their submissions" ON submission_feedback;
-CREATE POLICY "Students can view feedback on their submissions"
-ON submission_feedback FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM assignment_submissions
-        WHERE id = submission_id AND student_id = auth.uid()
-    )
+DROP POLICY IF EXISTS "Public view assignments" ON assignments;
+CREATE POLICY "Public view assignments" ON assignments FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Teachers can manage own assignments" ON assignments;
+CREATE POLICY "Teachers can manage own assignments" ON assignments FOR ALL USING (auth.uid() = teacher_id);
+
+DROP POLICY IF EXISTS "Students see own submissions" ON assignment_submissions;
+CREATE POLICY "Students see own submissions" ON assignment_submissions FOR SELECT USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Students insert own submissions" ON assignment_submissions;
+CREATE POLICY "Students insert own submissions" ON assignment_submissions FOR INSERT WITH CHECK (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Teachers view class submissions" ON assignment_submissions;
+CREATE POLICY "Teachers view class submissions" ON assignment_submissions FOR SELECT USING (
+    EXISTS (SELECT 1 FROM assignments a JOIN classes c ON c.id = a.class_id WHERE a.id = assignment_id AND c.teacher_id = auth.uid())
 );
 
-DROP POLICY IF EXISTS "Teachers can insert feedback" ON submission_feedback;
-CREATE POLICY "Teachers can insert feedback"
-ON submission_feedback FOR INSERT
-WITH CHECK (teacher_id = auth.uid());
-
-DROP POLICY IF EXISTS "Teachers can view all feedback" ON submission_feedback;
-CREATE POLICY "Teachers can view all feedback"
-ON submission_feedback FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'teacher'
-    )
-);
-
--- ============================================
--- 9. TRIGGER: AUTO NOTIFY ON GRADE
--- Ödev notlandığında öğrenciye bildirim gönder (gelecekte)
--- ============================================
+-- 8. TRIGGER FOR NOTIFICATIONS
 CREATE OR REPLACE FUNCTION notify_student_on_grade()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Sadece score NULL'dan değere geçtiğinde çalışsın
     IF OLD.score IS NULL AND NEW.score IS NOT NULL THEN
-        -- Gelecekte burada bildirim sistemi eklenebilir
-        -- Şimdilik sadece log tutalım
-        RAISE NOTICE 'Ödev notlandı: Öğrenci %, Puan %', NEW.student_id, NEW.score;
+        INSERT INTO notifications (user_id, title, content, type)
+        VALUES (NEW.student_id, 'Ödevin Notlandı! ✅', 'Bir öğretmen ödevini değerlendirdi.', 'success');
     END IF;
     RETURN NEW;
 END;
@@ -351,7 +216,3 @@ CREATE TRIGGER trigger_notify_on_grade
 AFTER UPDATE OF score ON assignment_submissions
 FOR EACH ROW
 EXECUTE FUNCTION notify_student_on_grade();
-
--- ============================================
--- MIGRATION COMPLETE
--- ============================================

@@ -27,31 +27,29 @@ ALTER TABLE public.class_students ENABLE ROW LEVEL SECURITY;
 
 -- --- CLASSES POLİTİKALARI ---
 
--- Öğretmenler kendi sınıflarını görebilir
+DROP POLICY IF EXISTS "Teachers can view own classes" ON public.classes;
 CREATE POLICY "Teachers can view own classes" 
 ON public.classes FOR SELECT 
 USING (auth.uid() = teacher_id);
 
--- Öğretmenler yeni sınıf oluşturabilir
+DROP POLICY IF EXISTS "Teachers can insert classes" ON public.classes;
 CREATE POLICY "Teachers can insert classes" 
 ON public.classes FOR INSERT 
 WITH CHECK (auth.uid() = teacher_id);
 
--- Öğretmenler kendi sınıflarını güncelleyebilir/silebilir
+DROP POLICY IF EXISTS "Teachers can update own classes" ON public.classes;
 CREATE POLICY "Teachers can update own classes" 
 ON public.classes FOR UPDATE 
 USING (auth.uid() = teacher_id);
 
+DROP POLICY IF EXISTS "Teachers can delete own classes" ON public.classes;
 CREATE POLICY "Teachers can delete own classes" 
 ON public.classes FOR DELETE 
 USING (auth.uid() = teacher_id);
 
--- Öğrenciler üye oldukları sınıfları görebilir (Karmaşık sorgu, şimdilik basitleştiriyoruz)
--- İleride öğrenci paneli için buraya ekleme yapacağız.
-
 -- --- CLASS_STUDENTS POLİTİKALARI ---
 
--- Öğretmenler, kendi sınıflarındaki öğrencileri görebilir
+DROP POLICY IF EXISTS "Teachers can view students in their classes" ON public.class_students;
 CREATE POLICY "Teachers can view students in their classes" 
 ON public.class_students FOR SELECT 
 USING (
@@ -62,7 +60,7 @@ USING (
     )
 );
 
--- Öğretmenler sınıflarına öğrenci ekleyebilir veya çıkarabilir
+DROP POLICY IF EXISTS "Teachers can manage students in their classes" ON public.class_students;
 CREATE POLICY "Teachers can manage students in their classes" 
 ON public.class_students FOR ALL
 USING (
@@ -73,9 +71,7 @@ USING (
     )
 );
 
--- 4. Örnek Veri (Opsiyonel - İlk sınıfınızı oluşturur)
--- Not: Bu kısım sadece teacher_id'niz biliniyorsa çalışır, bu yüzden manuel ekleme yapmanız daha iyi.
-
--- 5. Realtime'ı aç (Anlık güncellemeler için)
-alter publication supabase_realtime add table classes;
-alter publication supabase_realtime add table class_students;
+-- 5. Realtime'ı aç (Hata verirse göz ardı edilebilir)
+-- Eğer tablo zaten yayındaysa hata verir, bu normaldir.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.classes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.class_students;
