@@ -155,8 +155,8 @@ export default function Signup() {
                             <Label>Hesap Türü</Label>
                             <RadioGroup
                                 value={role}
-                                onValueChange={(value: "student" | "teacher") => setRole(value)}
-                                className="flex gap-4"
+                                onValueChange={(value: "student" | "teacher" | "parent") => setRole(value as any)}
+                                className="flex flex-wrap gap-4"
                                 disabled={loading}
                             >
                                 <div className="flex items-center space-x-2">
@@ -169,6 +169,12 @@ export default function Signup() {
                                     <RadioGroupItem value="teacher" id="teacher" />
                                     <Label htmlFor="teacher" className="cursor-pointer">
                                         Öğretmen
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="parent" id="parent" />
+                                    <Label htmlFor="parent" className="cursor-pointer">
+                                        Veli
                                     </Label>
                                 </div>
                             </RadioGroup>
