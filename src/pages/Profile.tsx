@@ -165,7 +165,8 @@ export default function Profile() {
           <h2 className="text-xl font-bold">{profile?.full_name || "Kullanıcı"}</h2>
           <p className="text-sm text-muted-foreground capitalize">
             {profile?.role === 'student' ? `${profile?.grade_level || '?'} . Sınıf Öğrencisi` :
-              profile?.role === 'teacher' ? 'Öğretmen' : profile?.role}
+              profile?.role === 'teacher' ? 'Öğretmen' :
+                profile?.role === 'parent' ? 'Veli' : profile?.role}
           </p>
 
           {profile?.role === 'student' && (

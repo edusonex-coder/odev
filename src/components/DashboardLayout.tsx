@@ -72,7 +72,12 @@ export default function DashboardLayout() {
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
-                    <p className="text-xs leading-none text-muted-foreground capitalize">{profile?.role}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {profile?.role === 'student' ? 'Öğrenci' :
+                        profile?.role === 'teacher' ? 'Öğretmen' :
+                          profile?.role === 'parent' ? 'Veli' :
+                            profile?.role === 'admin' ? 'Yönetici' : profile?.role}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
