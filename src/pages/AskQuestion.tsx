@@ -201,6 +201,7 @@ export default function AskQuestion() {
 
       // 1. Resmi Supabase Storage'a yükle (Varsa)
       if (imageFile) {
+        toast({ title: "Yükleniyor...", description: "Resim sunucuya gönderiliyor." });
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${user?.id}/${fileName}`;
@@ -209,7 +210,7 @@ export default function AskQuestion() {
           .from('question_images')
           .upload(filePath, imageFile);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) throw new Error(`Resim yükleme hatası: ${uploadError.message}`);
         imageUrl = filePath;
       }
 
@@ -226,7 +227,7 @@ export default function AskQuestion() {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) throw new Error(`Veritabanı kayıt hatası: ${dbError.message}`);
 
       // 3. EĞER METİN VARSA: AI Otomatik Çözüm Üretsin
       if (questionText && qData) {
