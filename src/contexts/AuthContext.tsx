@@ -73,7 +73,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .eq('id', userId)
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                // Eğer profil yoksa (PGRST116), otomatik oluşturmayı dene (Fallback)
+                if (error.code === 'PGRST116') {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const newProfile = {
+                            id: user.id,
+                            full_name: user.user_metadata.full_name || 'Yeni Kullanıcı',
+                            role: user.user_metadata.role || 'student',
+                        };
+                        const { data: createdProfile, error: createError } = await supabase
+                            .from('profiles')
+                            .insert(newProfile)
+                            .select()
+                            .single();
+
+                        if (!createError) {
+                            setProfile(createdProfile);
+                            return;
+                        }
+                    }
+                }
+                throw error;
+            }
             setProfile(data);
         } catch (error) {
             console.error('Error fetching profile:', error);
