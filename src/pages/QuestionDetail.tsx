@@ -44,6 +44,8 @@ export default function QuestionDetail() {
     const [isThinking, setIsThinking] = useState(false);
     const [isAutoSolving, setIsAutoSolving] = useState(false);
     const autoSolveAttempted = useRef(false);
+    const [similarQuestion, setSimilarQuestion] = useState<string | null>(null);
+    const [isGeneratingSimilar, setIsGeneratingSimilar] = useState(false);
 
     // ID her değiştiğinde (yeni soruya geçildiğinde) 'çözüldü' işaretini kaldır
     useEffect(() => {
@@ -145,6 +147,31 @@ export default function QuestionDetail() {
             autoSolve();
         }
     }, [question, solutions, loading, user]);
+
+    const handleGenerateSimilarQuestion = async () => {
+        if (!question) return;
+        setIsGeneratingSimilar(true);
+        try {
+            const prompt = `Öğrencinin şu matematik sorusuna benzer, aynı konuda ve zorlukta YENİ bir pratik sorusu oluştur:
+            "${question.question_text || "Görseldeki soru"}"
+            
+            Sadece soruyu ve şıkları yaz. Cevabı hemen verme.`;
+
+            const response = await getAIResponse([{ role: "user", content: prompt }]);
+            setSimilarQuestion(response);
+            toast.success("Benzer soru hazır!");
+
+            setTimeout(() => {
+                document.getElementById("similar-q-section")?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+
+        } catch (error) {
+            console.error(error);
+            toast.error("Benzer soru oluşturulamadı.");
+        } finally {
+            setIsGeneratingSimilar(false);
+        }
+    };
 
     const handleSpeak = (text: string, solId: string) => {
         if (speakingInfo?.speaking && speakingInfo.id === solId) {
@@ -464,22 +491,81 @@ export default function QuestionDetail() {
                         onClick={() => setInputMessage("Bu soruyu çözmeye nasıl başlamalıyım?")}
                         className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
                     >
-                        🚀 Nasıl başlamalıyım?
+                        🚀 Başlangıç ipucu
                     </button>
                     <button
-                        onClick={() => setInputMessage("Bana küçük bir ipucu verir misin?")}
+                        onClick={() => setInputMessage("Hangi formülü kullanmalıyım?")}
                         className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
                     >
-                        💡 İpucu ver
-                    </button>
-                    <button
-                        onClick={() => setInputMessage("Hangi konuyu bilmem gerekiyor?")}
-                        className="text-[10px] bg-white dark:bg-card px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors text-indigo-600 dark:text-indigo-400"
-                    >
-                        📚 Hangi konu bu?
+                        📐 Formül sor
                     </button>
                 </div>
             </motion.div>
+
+            {/* Benzer Soru / Pratik Yap */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-6"
+                id="similar-q-section"
+            >
+                {!similarQuestion ? (
+                    <Button
+                        onClick={handleGenerateSimilarQuestion}
+                        disabled={isGeneratingSimilar}
+                        className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-200 dark:shadow-none"
+                    >
+                        {isGeneratingSimilar ? (
+                            <>
+                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                Pratik Sorusu Hazırlanıyor...
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-5 h-5 mr-2" />
+                                Benzer Soru Çöz & Pekiştir
+                            </>
+                        )}
+                    </Button>
+                ) : (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-3xl p-6 border-2 border-emerald-100 dark:border-emerald-900 shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <Sparkles className="w-32 h-32 text-emerald-500" />
+                        </div>
+                        <h3 className="font-bold text-lg text-emerald-700 dark:text-emerald-400 mb-4 flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5" />
+                            Sıra Sende!
+                        </h3>
+                        <div className="prose dark:prose-invert max-w-none mb-4 text-emerald-900 dark:text-emerald-100">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
+                            >
+                                {similarQuestion}
+                            </ReactMarkdown>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+                                onClick={() => setSimilarQuestion(null)}
+                            >
+                                Yeni Soru İste
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => navigate("/dashboard/ask")}
+                            >
+                                Çözümü Gönder
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </motion.div>
         </div>
-    );
+    </div >
+  );
 }
