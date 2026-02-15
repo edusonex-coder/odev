@@ -566,6 +566,5 @@ export default function QuestionDetail() {
                 )}
             </motion.div>
         </div>
-    </div >
-  );
+    );
 }
