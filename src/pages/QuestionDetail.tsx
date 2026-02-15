@@ -154,9 +154,29 @@ export default function QuestionDetail() {
         }
 
         window.speechSynthesis.cancel(); // Öncekini durdur
-        const utterance = new SpeechSynthesisUtterance(text);
+
+        // Markdown ve LaTeX sembollerini temizle (Okurken garip durmasın)
+        const cleanText = text
+            .replace(/[*#_`]/g, '') // Markdown
+            .replace(/\$/g, '') // LaTeX dolar işaretleri
+            .replace(/\[.*?\]/g, '') // Köşeli parantez içleri (bazen link vs olur)
+            .trim();
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "tr-TR";
+        utterance.rate = 0.95; // Hafifçe yavaş, ders anlatır gibi
+        utterance.pitch = 1.0;
+
+        // Türkçe sesi bulmaya çalış (Google Türkçe sesi varsa harika olur)
+        const voices = window.speechSynthesis.getVoices();
+        const trVoice = voices.find(v => v.lang.includes('tr')) || voices.find(v => v.lang.includes('TR'));
+        if (trVoice) utterance.voice = trVoice;
+
         utterance.onend = () => setSpeakingInfo(null);
+        utterance.onerror = () => {
+            setSpeakingInfo(null);
+            toast.error("Sesli okuma başlatılamadı.");
+        };
 
         setSpeakingInfo({ id: solId, speaking: true });
         window.speechSynthesis.speak(utterance);
