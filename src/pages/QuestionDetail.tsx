@@ -10,6 +10,10 @@ import { tr } from "date-fns/locale";
 import { askSocraticAI, getAIResponse } from "@/lib/ai";
 import { toast } from "sonner";
 import { grantXP, XP_VALUES } from "@/lib/gamification";
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface QuestionDetail {
     id: string;
@@ -336,9 +340,18 @@ export default function QuestionDetail() {
                                                 </span>
                                             </div>
                                         </div>
-                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                                            {sol.solution_text}
-                                        </p>
+                                        <div className="text-sm leading-relaxed prose dark:prose-invert max-w-none break-words">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                                components={{
+                                                    p: ({ node, ...props }) => <p className="mb-3 last:mb-0" {...props} />,
+                                                    strong: ({ node, ...props }) => <span className="font-bold text-primary" {...props} />
+                                                }}
+                                            >
+                                                {sol.solution_text}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -384,7 +397,17 @@ export default function QuestionDetail() {
                                     ? 'bg-indigo-600 text-white rounded-tr-none'
                                     : 'bg-white dark:bg-card border-2 border-indigo-50 dark:border-indigo-900 rounded-tl-none'
                                     }`}>
-                                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                                    <div className="text-sm leading-relaxed prose dark:prose-invert max-w-none break-words">
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkMath]}
+                                            rehypePlugins={[rehypeKatex]}
+                                            components={{
+                                                p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />
+                                            }}
+                                        >
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
                                 </div>
                             </motion.div>
                         ))
