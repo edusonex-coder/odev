@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen } from "lucide-react";
+import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen, Globe, Youtube, Music, FileDown, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-illustration.png";
@@ -300,6 +300,175 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Resources Section - Video, Podcast & Presentations */}
+      <section className="py-24 bg-card/50 relative overflow-hidden">
+        <div className="container px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
+              Eğitimde <span className="gradient-text">Yeni Nesil</span> Kaynaklar
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Platformumuzu daha yakından tanıyın, podcastlerimizi dinleyin ve sunumlarımızı inceleyin.
+            </p>
+          </motion.div>
+
+          <div className="grid lg:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
+            {/* YouTube & Spotify Column */}
+            <div className="space-y-8">
+              {/* YouTube Video Embed */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-card rounded-[2rem] border overflow-hidden shadow-xl"
+              >
+                <div className="p-6 border-b bg-primary/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Youtube className="w-5 h-5 text-red-500" />
+                    <h3 className="font-bold">Tanıtım Videomuz</h3>
+                  </div>
+                  <a href="https://youtu.be/WPxtGU3yAjs" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                    YouTube'da İzle <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="aspect-video">
+                  <iframe
+                    className="w-full h-full"
+                    src="https://www.youtube.com/embed/WPxtGU3yAjs"
+                    title="OdevGPT Tanıtım Videosu"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              </motion.div>
+
+              {/* Spotify Podcast Embed */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="bg-[#1DB954]/5 rounded-[2rem] border border-[#1DB954]/20 overflow-hidden shadow-sm p-1"
+              >
+                <div className="p-5 flex items-center gap-2">
+                  <Music className="w-5 h-5 text-[#1DB954]" />
+                  <h3 className="font-bold">Eğitim Podcastimiz</h3>
+                </div>
+                <iframe
+                  src="https://open.spotify.com/embed/episode/3QcJY1AjuhiXwjxtRPZNKy?utm_source=generator"
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="rounded-2xl"
+                ></iframe>
+              </motion.div>
+            </div>
+
+            {/* Info & PDF Column */}
+            <div className="space-y-8">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-white dark:bg-card rounded-[2rem] border shadow-xl p-8 h-full"
+              >
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Proje Bilgi Paketi</h3>
+                <p className="text-muted-foreground mb-8 leading-relaxed">
+                  OdevGPT'nin vizyonu, teknolojisi ve pedagojik temelleri hakkında hazırladığımız detaylı sunuma aşağıdan ulaşabilirsiniz. Projemizin nasıl bir fark yarattığını keşfedin.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="group flex items-center justify-between p-4 bg-gray-50 rounded-2xl border hover:border-blue-300 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-white rounded-xl shadow-sm">
+                        <FileDown className="w-6 h-6 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">OdevGPT_info_1.pdf</p>
+                        <p className="text-[10px] text-muted-foreground">Proje Tanıtım Sunumu • 13.1 MB</p>
+                      </div>
+                    </div>
+                    <a
+                      href="/docs/odevGPT_info_1.pdf"
+                      download
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-200"
+                    >
+                      İndir
+                    </a>
+                  </div>
+                </div>
+
+                <div className="mt-12 p-6 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4">
+                  <div className="p-2 h-fit bg-amber-100 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-900 mb-1">CTO Notu</h4>
+                    <p className="text-xs text-amber-800/80 leading-relaxed">
+                      "Yapay zekayı sadece bir araç değil, her öğrencinin yanında duran sabırlı bir mentor olarak tasarladık. Sunumumuzda bu mimariyi detaylıca bulabilirsiniz."
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Universe Discovery Button */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="container flex justify-center px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl"
+          >
+            <a
+              href="https://edusonex.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative block w-full bg-black rounded-[3rem] p-1 overflow-hidden"
+            >
+              {/* Animated Background for the Button */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 group-hover:opacity-100 blur-xl transition-opacity animate-gradient-text" />
+
+              <div className="relative bg-black/90 rounded-[2.9rem] p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 border border-white/10 group-hover:border-white/20 transition-all">
+                <div className="text-center md:text-left space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-bold tracking-widest uppercase">
+                    Premium Deneyim
+                  </div>
+                  <h2 className="text-3xl md:text-5xl font-black text-white">
+                    EdusonEX Evrenini <span className="text-indigo-400 italic">Keşfedin</span>
+                  </h2>
+                  <p className="text-white/60 text-lg max-w-md">
+                    OdevGPT'nin doğduğu devasa eğitim ekosistemine yolculuğa çıkın.
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 bg-indigo-500 blur-3xl opacity-0 group-hover:opacity-40 transition-opacity" />
+                  <div className="relative px-8 py-5 bg-white text-black rounded-2xl font-black text-xl flex items-center gap-3 transition-transform group-hover:scale-105 active:scale-95 shadow-2xl">
+                    Hemen Git
+                    <Globe className="w-6 h-6 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </a>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-12 border-t bg-card/30">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-8 text-sm text-muted-foreground">
@@ -314,7 +483,9 @@ export default function LandingPage() {
           </div>
 
           <div className="flex gap-8">
-            <a href="#" className="hover:text-primary transition-colors">Hakkımızda</a>
+            <a href="https://edusonex.com" className="hover:text-primary transition-colors flex items-center gap-1">
+              EdusonEX <ExternalLink className="w-3 h-3" />
+            </a>
             <a href="#" className="hover:text-primary transition-colors">Öğretmenler</a>
             <a href="#" className="hover:text-primary transition-colors">Blog</a>
             <a href="#" className="hover:text-primary transition-colors">İletişim</a>
