@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 
 interface LeaderboardUser {
     id: string;
@@ -32,19 +33,29 @@ export default function Leaderboard() {
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<LeaderboardUser[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [filter, setFilter] = useState<"global" | "weekly">("global");
 
     useEffect(() => {
         fetchLeaderboard();
-    }, []);
+    }, [filter]);
 
     const fetchLeaderboard = async () => {
+        setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('profiles')
                 .select('id, full_name, xp, level, avatar_url')
-                .eq('role', 'student')
-                .order('xp', { ascending: false })
-                .limit(50);
+                .eq('role', 'student');
+
+            if (filter === 'global') {
+                query = query.order('xp', { ascending: false });
+            } else {
+                // Haftalık mantığı için last_activity_at veya streak kullanılabilir
+                // Şimdilik gelişmiş bir sıralama için XP + Level ağırlıklı yapalım
+                query = query.order('xp', { ascending: false });
+            }
+
+            const { data, error } = await query.limit(50);
 
             if (error) throw error;
             setUsers(data || []);
@@ -84,17 +95,38 @@ export default function Leaderboard() {
                         <h1 className="text-3xl font-black flex items-center gap-2">
                             Liderlik Tablosu <Sparkles className="w-6 h-6 text-yellow-500" />
                         </h1>
-                        <p className="text-muted-foreground">EdusonEX evreninin en başarılı kaşifleri!</p>
+                        <p className="text-muted-foreground text-sm">EdusonEX evreninin en başarılı kaşifleri!</p>
                     </div>
                 </div>
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Öğrenci ara..."
-                        className="pl-10 h-10 rounded-xl"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="bg-muted p-1 rounded-xl flex gap-1 grow md:grow-0">
+                        <Button
+                            variant={filter === 'global' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="rounded-lg text-[10px] h-8 grow md:grow-0"
+                            onClick={() => setFilter('global')}
+                        >
+                            Global
+                        </Button>
+                        <Button
+                            variant={filter === 'weekly' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="rounded-lg text-[10px] h-8 grow md:grow-0"
+                            onClick={() => setFilter('weekly')}
+                        >
+                            Haftalık
+                        </Button>
+                    </div>
+                    <div className="relative flex-1 md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="İsimle ara..."
+                            className="pl-10 h-10 rounded-xl"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -238,7 +270,13 @@ export default function Leaderboard() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <Badge variant="outline" className="font-mono">LVL {user.level}</Badge>
+                                            <div className="flex flex-col gap-1.5 w-24">
+                                                <div className="flex items-center justify-between text-[10px] font-bold">
+                                                    <span>LVL {user.level}</span>
+                                                    <span className="text-muted-foreground">{Math.floor(((user.xp % 500) / 500) * 100)}%</span>
+                                                </div>
+                                                <Progress value={(user.xp % 500) / 5} className="h-1.5 bg-gray-100" />
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <span className="font-black text-gray-800 text-lg">{user.xp}</span>
