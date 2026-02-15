@@ -9,6 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { askSocraticAI } from "@/lib/ai";
 import { toast } from "sonner";
+import { grantXP, XP_VALUES } from "@/lib/gamification";
 
 interface QuestionDetail {
     id: string;
@@ -115,6 +116,11 @@ export default function QuestionDetail() {
             });
 
             setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+
+            // XP Kazandır
+            if (user) {
+                grantXP(user.id, XP_VALUES.SOCRATIC_MESSAGE);
+            }
         } catch (error) {
             console.error("Chat error:", error);
             toast.error("AI ile bağlantı kurulamadı.");

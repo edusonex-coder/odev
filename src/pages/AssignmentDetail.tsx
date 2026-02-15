@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+import { grantXP, XP_VALUES } from "@/lib/gamification";
 
 interface Assignment {
     id: string;
@@ -168,6 +169,12 @@ export default function AssignmentDetail() {
 
             setUploadProgress(100);
             toast({ title: "Başarılı", description: "Ödevin başarıyla teslim edildi! 🚀" });
+
+            // XP Kazandır
+            if (user) {
+                grantXP(user.id, XP_VALUES.ASSIGNMENT_SUBMISSION);
+            }
+
             setSelectedFile(null);
             fetchAssignmentDetails();
         } catch (error: any) {
