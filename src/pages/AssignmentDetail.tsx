@@ -69,6 +69,12 @@ export default function AssignmentDetail() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
+    // Teacher states
+    const [gradingSub, setGradingSub] = useState<Submission | null>(null);
+    const [gradeInput, setGradeInput] = useState("");
+    const [feedbackInput, setFeedbackInput] = useState("");
+    const [isGrading, setIsGrading] = useState(false);
+
     const isTeacher = profile?.role === 'teacher';
 
     useEffect(() => {
@@ -120,6 +126,37 @@ export default function AssignmentDetail() {
             toast({ title: "Hata", description: "Ödev detayları yüklenemedi.", variant: "destructive" });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGradeSubmission = async () => {
+        if (!gradingSub || !gradeInput || !user) return;
+        setIsGrading(true);
+        try {
+            const { error } = await supabase
+                .from('assignment_submissions')
+                .update({
+                    grade: gradeInput,
+                    status: 'graded'
+                    // We might need to add a feedback column to the table if it doesn't exist, 
+                    // otherwise we can reuse 'content' or just use the grade.
+                    // For now, let's assume we just update grade and status.
+                })
+                .eq('id', gradingSub.id);
+
+            if (error) throw error;
+
+            toast({ title: "Başarılı", description: "Not başarıyla verildi! 🎯" });
+
+            // Give XP to STUDENT (from teacher)
+            grantXP(gradingSub.student_id, XP_VALUES.PERFECT_GRADE); // Bonus for completion/grading
+
+            setGradingSub(null);
+            fetchAssignmentDetails();
+        } catch (error: any) {
+            toast({ title: "Hata", description: "Not verilirken bir hata oluştu.", variant: "destructive" });
+        } finally {
+            setIsGrading(false);
         }
     };
 
@@ -225,6 +262,70 @@ export default function AssignmentDetail() {
                             </p>
                         </CardContent>
                     </Card>
+
+                    {/* Teacher Grading View */}
+                    {isTeacher && gradingSub && (
+                        <Card className="shadow-lg border-indigo-200 animate-in slide-in-from-right duration-300">
+                            <CardHeader className="bg-indigo-50/50">
+                                <CardTitle className="text-lg">Değerlendirme: {gradingSub.profiles?.full_name}</CardTitle>
+                                <CardDescription>Öğrencinin ödevini incele ve not ver.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-primary" /> Öğrenci Yanıtı
+                                    </h4>
+                                    <div className="p-4 bg-gray-50 rounded-xl text-sm leading-relaxed whitespace-pre-wrap min-h-[100px] border">
+                                        {gradingSub.content || "Öğrenci bir açıklama yazmamış."}
+                                    </div>
+                                </div>
+
+                                {gradingSub.file_url && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-bold">Ekli Dosya</h4>
+                                        <a
+                                            href={gradingSub.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 transition-colors group"
+                                        >
+                                            <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                                <FileText className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold">Ödev Dosyasını Aç</p>
+                                                <p className="text-[10px] text-muted-foreground">PDF veya Resim dosyası</p>
+                                            </div>
+                                            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                                        </a>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4 pt-4 border-t">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold">Not / Puan</label>
+                                        <Input
+                                            placeholder="Örn: 95/100, A+, Harika!"
+                                            value={gradeInput}
+                                            onChange={(e) => setGradeInput(e.target.value)}
+                                            className="font-bold text-lg"
+                                        />
+                                    </div>
+                                </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-between gap-3 border-t pt-4 bg-gray-50/30">
+                                <Button variant="ghost" onClick={() => setGradingSub(null)}>Kapat</Button>
+                                <Button
+                                    onClick={handleGradeSubmission}
+                                    className="gap-2 bg-indigo-600 hover:bg-indigo-700"
+                                    disabled={isGrading || !gradeInput}
+                                >
+                                    {isGrading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    Notu Gönder & XP Ver
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )}
 
                     {!isTeacher && (
                         <Card className="shadow-md border-primary/20">
@@ -357,10 +458,19 @@ export default function AssignmentDetail() {
                             <CardContent className="p-0">
                                 <div className="divide-y">
                                     {submissions.map((sub) => (
-                                        <div key={sub.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                                        <div
+                                            key={sub.id}
+                                            className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${gradingSub?.id === sub.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
+                                            onClick={() => {
+                                                setGradingSub(sub);
+                                                setGradeInput(sub.grade || "");
+                                            }}
+                                        >
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-sm font-bold">{sub.profiles?.full_name}</span>
-                                                <Badge variant="outline" className="text-[10px]">{sub.status}</Badge>
+                                                <Badge variant={sub.status === 'graded' ? 'default' : 'outline'} className="text-[10px]">
+                                                    {sub.status === 'graded' ? 'PUANLANDI' : 'BEKLEYEN'}
+                                                </Badge>
                                             </div>
                                             <p className="text-[11px] text-muted-foreground truncate">{sub.content}</p>
                                             {sub.file_url && (

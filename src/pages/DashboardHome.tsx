@@ -384,11 +384,11 @@ export default function DashboardHome() {
             <div className="text-xs text-muted-foreground">Başarı Oranı</div>
           </CardContent>
         </Card>
-        <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-all cursor-pointer">
+        <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/dashboard/leaderboard')}>
           <CardContent className="p-6 flex flex-col items-center justify-center text-center">
             <Trophy className="w-8 h-8 text-purple-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-800">3. Sıra</div>
-            <div className="text-xs text-muted-foreground">Sınıf Liderliği</div>
+            <div className="text-2xl font-bold text-gray-800">Sıralama</div>
+            <div className="text-xs text-muted-foreground">Liderlik Tablosu</div>
           </CardContent>
         </Card>
       </div>

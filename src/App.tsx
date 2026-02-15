@@ -22,6 +22,7 @@ import Premium from "./pages/Premium";
 import AdminPanel from "./pages/AdminPanel";
 import ClassDetail from "./pages/ClassDetail";
 import AssignmentDetail from "./pages/AssignmentDetail";
+import Leaderboard from "./pages/Leaderboard";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="admin" element={<AdminPanel />} /> {/* Admin Panel Rotası */}
               <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
               <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
+              <Route path="leaderboard" element={<Leaderboard />} /> {/* Global Leaderboard */}
             </Route>
 
             <Route
