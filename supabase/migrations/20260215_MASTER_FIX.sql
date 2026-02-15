@@ -51,7 +51,31 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 
--- 4. XP LOGLARI TABLOSU
+-- 4. SORULAR VE ÇÖZÜMLER TABLOLARI (Eğer yoksa)
+CREATE TABLE IF NOT EXISTS questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    subject TEXT,
+    question_text TEXT,
+    image_url TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS solutions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    solver_type TEXT CHECK (solver_type IN ('ai', 'teacher', 'system')),
+    solver_id UUID REFERENCES profiles(id),
+    solution_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. XP LOGLARI VE BİLDİRİMLER İÇİN INDEXLER
+CREATE INDEX IF NOT EXISTS idx_questions_student ON questions(student_id);
+CREATE INDEX IF NOT EXISTS idx_solutions_question ON solutions(question_id);
+
+-- 6. XP LOGLARI TABLOSU
 CREATE TABLE IF NOT EXISTS xp_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -133,11 +157,12 @@ BEGIN
 END;
 $$;
 
--- 6. GÜVENLİK (RLS) POLİTİKALARI
 ALTER TABLE student_parent_relations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE xp_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE solutions ENABLE ROW LEVEL SECURITY;
 
 -- Basit ama güvenli politikalar
 DROP POLICY IF EXISTS "Public profiles" ON profiles;
@@ -154,3 +179,20 @@ CREATE POLICY "Notifications select" ON notifications FOR SELECT USING (auth.uid
 
 DROP POLICY IF EXISTS "Notifications update" ON notifications;
 CREATE POLICY "Notifications update" ON notifications FOR UPDATE USING (auth.uid() = user_id);
+
+-- Questions access
+DROP POLICY IF EXISTS "Users can view own questions" ON questions;
+CREATE POLICY "Users can view own questions" ON questions FOR SELECT USING (auth.uid() = student_id OR EXISTS (SELECT 1 FROM student_parent_relations WHERE parent_id = auth.uid() AND student_id = questions.student_id));
+
+DROP POLICY IF EXISTS "Users can insert own questions" ON questions;
+CREATE POLICY "Users can insert own questions" ON questions FOR INSERT WITH CHECK (auth.uid() = student_id);
+
+-- Solutions access
+DROP POLICY IF EXISTS "Users can view relevant solutions" ON solutions;
+CREATE POLICY "Users can view relevant solutions" ON solutions FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM questions q 
+        WHERE q.id = question_id 
+        AND (q.student_id = auth.uid() OR EXISTS (SELECT 1 FROM student_parent_relations WHERE parent_id = auth.uid() AND student_id = q.student_id))
+    )
+);

@@ -200,7 +200,7 @@ export default function ParentPanel() {
                         value={pairingCode}
                         onChange={(e) => setPairingCode(e.target.value)}
                         className="border-none bg-transparent focus-visible:ring-0 w-full md:w-48 placeholder:text-muted-foreground/50"
-                        maxLength={6}
+                        maxLength={8}
                     />
                     <Button
                         onClick={handlePairing}
