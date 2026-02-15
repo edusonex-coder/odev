@@ -166,22 +166,24 @@ export default function Profile() {
               profile?.role === 'teacher' ? 'Öğretmen' : profile?.role}
           </p>
 
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <div className="text-center">
-              <p className="text-lg font-bold text-accent">5</p>
-              <p className="text-xs text-muted-foreground">🔥 Seri</p>
+          {profile?.role === 'student' && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <div className="text-center">
+                <p className="text-lg font-bold text-accent">{profile?.streak || 0}</p>
+                <p className="text-xs text-muted-foreground">🔥 Seri</p>
+              </div>
+              <div className="w-px h-8 bg-border" />
+              <div className="text-center">
+                <p className="text-lg font-bold text-primary">{profile?.xp || 0}</p>
+                <p className="text-xs text-muted-foreground">⭐ XP</p>
+              </div>
+              <div className="w-px h-8 bg-border" />
+              <div className="text-center">
+                <p className="text-lg font-bold">28</p>
+                <p className="text-xs text-muted-foreground">Çözülen</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <p className="text-lg font-bold text-primary">250</p>
-              <p className="text-xs text-muted-foreground">⭐ XP</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <p className="text-lg font-bold">28</p>
-              <p className="text-xs text-muted-foreground">Çözülen</p>
-            </div>
-          </div>
+          )}
         </div>
       </motion.div>
 
@@ -228,47 +230,51 @@ export default function Profile() {
         </motion.div>
       )}
 
-      {/* Level Progress */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-card rounded-xl p-4 border"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Seviye 5</span>
-          <span className="text-xs text-muted-foreground">250 / 500 XP</span>
-        </div>
-        <Progress value={50} className="h-2" />
-        <p className="text-xs text-muted-foreground mt-1">Seviye 6'ya 250 XP kaldı</p>
-      </motion.div>
+      {/* Level Progress (Only for students) */}
+      {profile?.role === 'student' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card rounded-xl p-4 border"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Seviye {profile?.level || 1}</span>
+            <span className="text-xs text-muted-foreground">{profile?.xp || 0} / {(profile?.level || 1) * 1000} XP</span>
+          </div>
+          <Progress value={((profile?.xp || 0) % 1000) / 10} className="h-2" />
+          <p className="text-xs text-muted-foreground mt-1">Sıradaki seviye için {1000 - ((profile?.xp || 0) % 1000)} XP kaldı</p>
+        </motion.div>
+      )}
 
-      {/* Badges */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <h3 className="font-semibold mb-3 flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-accent" /> Rozetlerim
-        </h3>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { emoji: "🐺", name: "Matematik Kurdu", earned: true },
-            { emoji: "🧪", name: "Fen Dehası", earned: true },
-            { emoji: "⚡", name: "Hız Şampiyonu", earned: false },
-            { emoji: "🔥", name: "Seri Avcısı", earned: false },
-          ].map((b) => (
-            <div
-              key={b.name}
-              className={`bg-card rounded-xl p-3 border text-center ${!b.earned ? "opacity-40" : ""}`}
-            >
-              <span className="text-2xl">{b.emoji}</span>
-              <p className="text-[10px] font-medium mt-1">{b.name}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
+      {/* Badges (Only for students) */}
+      {profile?.role === 'student' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-accent" /> Rozetlerim
+          </h3>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { emoji: "🐺", name: "Matematik Kurdu", earned: true },
+              { emoji: "🧪", name: "Fen Dehası", earned: true },
+              { emoji: "⚡", name: "Hız Şampiyonu", earned: false },
+              { emoji: "🔥", name: "Seri Avcısı", earned: false },
+            ].map((b) => (
+              <div
+                key={b.name}
+                className={`bg-card rounded-xl p-3 border text-center ${!b.earned ? "opacity-40" : ""}`}
+              >
+                <span className="text-2xl">{b.emoji}</span>
+                <p className="text-[10px] font-medium mt-1">{b.name}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Menu Items */}
       <motion.div
