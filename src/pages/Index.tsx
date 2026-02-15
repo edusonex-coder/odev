@@ -71,6 +71,14 @@ export default function LandingPage() {
               <span className="text-accent">GPT</span>
             </span>
           </Link>
+
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
+            <a href="#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
+            <Link to="/blog" className="text-sm font-semibold hover:text-primary transition-colors">Blog</Link>
+            <a href="#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
+          </div>
+
           <div className="flex items-center gap-3">
             <Link to="/login">
               <Button variant="ghost" size="sm">Giriş Yap</Button>
@@ -483,12 +491,12 @@ export default function LandingPage() {
           </div>
 
           <div className="flex gap-8">
-            <a href="https://edusonex.com" className="hover:text-primary transition-colors flex items-center gap-1">
-              EdusonEX <ExternalLink className="w-3 h-3" />
-            </a>
-            <a href="#" className="hover:text-primary transition-colors">Öğretmenler</a>
-            <a href="#" className="hover:text-primary transition-colors">Blog</a>
-            <a href="#" className="hover:text-primary transition-colors">İletişim</a>
+            <nav className="hidden md:flex items-center gap-8">
+              <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">Özellikler</a>
+              <a href="#how-it-works" className="text-sm font-semibold hover:text-primary transition-colors">Nasıl Çalışır?</a>
+              <Link to="/blog" className="text-sm font-semibold hover:text-primary transition-colors">Blog</Link>
+              <a href="#pricing" className="text-sm font-semibold hover:text-primary transition-colors">Ücretlendirme</a>
+            </nav>
           </div>
 
           <p>© 2026 ODEVGPT. Tüm hakları saklıdır.</p>

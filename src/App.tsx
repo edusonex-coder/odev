@@ -23,6 +23,8 @@ import AdminPanel from "./pages/AdminPanel";
 import ClassDetail from "./pages/ClassDetail";
 import AssignmentDetail from "./pages/AssignmentDetail";
 import Leaderboard from "./pages/Leaderboard";
+import BlogList from "./pages/BlogList";
+import BlogPost from "./pages/BlogPost";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
 
             <Route
               path="/dashboard"

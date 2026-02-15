@@ -38,6 +38,9 @@ import {
     Cell,
     Legend
 } from "recharts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AdminBlogManager from "@/components/AdminBlogManager";
+import { BookOpenText } from "lucide-react";
 
 interface UserProfile {
     id: string;
@@ -205,202 +208,217 @@ export default function AdminPanel() {
                 </div>
             </div>
 
-            {/* İstatistik Kartları */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-blue-900">Toplam Kullanıcı</CardTitle>
-                        <Users className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-blue-700">{stats.totalUsers}</div>
-                        <p className="text-xs text-blue-600/80">Sisteme kayıtlı herkes</p>
-                    </CardContent>
-                </Card>
+            <Tabs defaultValue="dashboard" className="space-y-6">
+                <TabsList className="bg-white border p-1 rounded-xl h-12">
+                    <TabsTrigger value="dashboard" className="rounded-lg gap-2">
+                        <BarChart3 className="w-4 h-4" /> İstatistikler
+                    </TabsTrigger>
+                    <TabsTrigger value="blogs" className="rounded-lg gap-2">
+                        <BookOpenText className="w-4 h-4" /> Blog Yönetimi
+                    </TabsTrigger>
+                </TabsList>
 
-                <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100 shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-purple-900">Toplam Soru</CardTitle>
-                        <FileQuestion className="h-4 w-4 text-purple-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-purple-700">{stats.totalQuestions}</div>
-                        <p className="text-xs text-purple-600/80">Sorulan tüm sorular</p>
-                    </CardContent>
-                </Card>
+                <TabsContent value="dashboard" className="space-y-8">
+                    {/* İstatistik Kartları */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-blue-900">Toplam Kullanıcı</CardTitle>
+                                <Users className="h-4 w-4 text-blue-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-blue-700">{stats.totalUsers}</div>
+                                <p className="text-xs text-blue-600/80">Sisteme kayıtlı herkes</p>
+                            </CardContent>
+                        </Card>
 
-                <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-green-900">Çözülen Soru</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-700">{stats.totalSolutions}</div>
-                        <p className="text-xs text-green-600/80">Başarıyla yanıtlananlar</p>
-                    </CardContent>
-                </Card>
+                        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100 shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-purple-900">Toplam Soru</CardTitle>
+                                <FileQuestion className="h-4 w-4 text-purple-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-purple-700">{stats.totalQuestions}</div>
+                                <p className="text-xs text-purple-600/80">Sorulan tüm sorular</p>
+                            </CardContent>
+                        </Card>
 
-                <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-100 shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-orange-900">Bekleyen Sorular</CardTitle>
-                        <Loader2 className="h-4 w-4 text-orange-600 animate-spin-slow" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-orange-700">{stats.pendingQuestions}</div>
-                        <p className="text-xs text-orange-600/80">Acil çözüm bekleyenler</p>
-                    </CardContent>
-                </Card>
-            </div>
+                        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-green-900">Çözülen Soru</CardTitle>
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-green-700">{stats.totalSolutions}</div>
+                                <p className="text-xs text-green-600/80">Başarıyla yanıtlananlar</p>
+                            </CardContent>
+                        </Card>
 
-            {/* Grafikler */}
-            <div className="grid gap-4 md:grid-cols-7">
-                {/* Sol Grafik: Haftalık Trend */}
-                <Card className="col-span-4 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-primary" /> Haftalık Aktivite
-                        </CardTitle>
-                        <CardDescription>Son 7 gün içindeki soru ve çözüm trafiği</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={weeklyData}>
-                                <defs>
-                                    <linearGradient id="colorSoru" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorCozum" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                />
-                                <Area type="monotone" dataKey="soru" stroke="#8884d8" fillOpacity={1} fill="url(#colorSoru)" name="Soru Sayısı" />
-                                <Area type="monotone" dataKey="cozum" stroke="#82ca9d" fillOpacity={1} fill="url(#colorCozum)" name="Çözüm Sayısı" />
-                                <Legend iconType="circle" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Sağ Grafik: Rol Dağılımı */}
-                <Card className="col-span-3 shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <PieChart className="w-5 h-5 text-primary" /> Kullanıcı Dağılımı
-                        </CardTitle>
-                        <CardDescription>Sistemdeki rollerin oranı</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <RePieChart>
-                                <Pie
-                                    data={pieData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    label
-                                >
-                                    {pieData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                            </RePieChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Kullanıcı Listesi */}
-            <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" /> Son Kayıt Olan Kullanıcılar
-                    </CardTitle>
-                    <CardDescription>Sisteme en son katılan 10 kullanıcı.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                    <TableHead className="w-[80px]">Avatar</TableHead>
-                                    <TableHead>Ad Soyad</TableHead>
-                                    <TableHead>Kayıt Tarihi</TableHead>
-                                    <TableHead>Rol</TableHead>
-                                    <TableHead className="text-right">İşlemler</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id} className="hover:bg-muted/5 transition-colors">
-                                        <TableCell>
-                                            <Avatar className="h-9 w-9 border">
-                                                <AvatarImage src={user.avatar_url || ""} />
-                                                <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs">
-                                                    {user.full_name?.substring(0, 2).toUpperCase() || "??"}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-semibold">{user.full_name || "İsimsiz"}</span>
-                                                <span className="text-xs text-muted-foreground">{user.id.substring(0, 8)}...</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="font-normal text-muted-foreground">
-                                                {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: tr })}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {user.role === 'admin' ? (
-                                                <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Yönetici</Badge>
-                                            ) : user.role === 'teacher' ? (
-                                                <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Öğretmen</Badge>
-                                            ) : (
-                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700">Öğrenci</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {user.role !== 'admin' && (
-                                                    <Button size="sm" className="h-7 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200" variant="outline" onClick={() => updateUserRole(user.id, 'admin')}>
-                                                        <ShieldAlert className="w-3 h-3 mr-1" /> Admin
-                                                    </Button>
-                                                )}
-                                                {user.role !== 'teacher' && (
-                                                    <Button size="sm" className="h-7 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200" variant="outline" onClick={() => updateUserRole(user.id, 'teacher')}>
-                                                        <School className="w-3 h-3 mr-1" /> Öğretmen
-                                                    </Button>
-                                                )}
-                                                {user.role !== 'student' && (
-                                                    <Button size="sm" className="h-7 px-2 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200" variant="outline" onClick={() => updateUserRole(user.id, 'student')}>
-                                                        <GraduationCap className="w-3 h-3 mr-1" /> Öğrenci
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-100 shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-orange-900">Bekleyen Sorular</CardTitle>
+                                <Loader2 className="h-4 w-4 text-orange-600 animate-spin-slow" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-orange-700">{stats.pendingQuestions}</div>
+                                <p className="text-xs text-orange-600/80">Acil çözüm bekleyenler</p>
+                            </CardContent>
+                        </Card>
                     </div>
-                </CardContent>
-            </Card>
+
+                    {/* Grafikler */}
+                    <div className="grid gap-4 md:grid-cols-7">
+                        <Card className="col-span-4 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BarChart3 className="w-5 h-5 text-primary" /> Haftalık Aktivite
+                                </CardTitle>
+                                <CardDescription>Son 7 gün içindeki soru ve çözüm trafiği</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pl-2">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <AreaChart data={weeklyData}>
+                                        <defs>
+                                            <linearGradient id="colorSoru" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="colorCozum" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                                        />
+                                        <Area type="monotone" dataKey="soru" stroke="#8884d8" fillOpacity={1} fill="url(#colorSoru)" name="Soru Sayısı" />
+                                        <Area type="monotone" dataKey="cozum" stroke="#82ca9d" fillOpacity={1} fill="url(#colorCozum)" name="Çözüm Sayısı" />
+                                        <Legend iconType="circle" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="col-span-3 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <PieChart className="w-5 h-5 text-primary" /> Kullanıcı Dağılımı
+                                </CardTitle>
+                                <CardDescription>Sistemdeki rollerin oranı</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <RePieChart>
+                                        <Pie
+                                            data={pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            label
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                                    </RePieChart>
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Kullanıcı Listesi */}
+                    <Card className="shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="w-5 h-5 text-primary" /> Son Kayıt Olan Kullanıcılar
+                            </CardTitle>
+                            <CardDescription>Sisteme en son katılan 10 kullanıcı.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted/50">
+                                            <TableHead className="w-[80px]">Avatar</TableHead>
+                                            <TableHead>Ad Soyad</TableHead>
+                                            <TableHead>Kayıt Tarihi</TableHead>
+                                            <TableHead>Rol</TableHead>
+                                            <TableHead className="text-right">İşlemler</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {users.map((user) => (
+                                            <TableRow key={user.id} className="hover:bg-muted/5 transition-colors">
+                                                <TableCell>
+                                                    <Avatar className="h-9 w-9 border">
+                                                        <AvatarImage src={user.avatar_url || ""} />
+                                                        <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs">
+                                                            {user.full_name?.substring(0, 2).toUpperCase() || "??"}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-semibold">{user.full_name || "İsimsiz"}</span>
+                                                        <span className="text-xs text-muted-foreground">{user.id.substring(0, 8)}...</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="font-normal text-muted-foreground">
+                                                        {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: tr })}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {user.role === 'admin' ? (
+                                                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Yönetici</Badge>
+                                                    ) : user.role === 'teacher' ? (
+                                                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Öğretmen</Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">Öğrenci</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {user.role !== 'admin' && (
+                                                            <Button size="sm" className="h-7 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200" variant="outline" onClick={() => updateUserRole(user.id, 'admin')}>
+                                                                <ShieldAlert className="w-3 h-3 mr-1" /> Admin
+                                                            </Button>
+                                                        )}
+                                                        {user.role !== 'teacher' && (
+                                                            <Button size="sm" className="h-7 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200" variant="outline" onClick={() => updateUserRole(user.id, 'teacher')}>
+                                                                <School className="w-3 h-3 mr-1" /> Öğretmen
+                                                            </Button>
+                                                        )}
+                                                        {user.role !== 'student' && (
+                                                            <Button size="sm" className="h-7 px-2 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200" variant="outline" onClick={() => updateUserRole(user.id, 'student')}>
+                                                                <GraduationCap className="w-3 h-3 mr-1" /> Öğrenci
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="blogs">
+                    <AdminBlogManager />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
