@@ -244,19 +244,26 @@ export default function AskQuestion() {
           const aiResponseText = await getAIResponse([{ role: "user", content: aiPrompt }]);
 
           // Çözümü kaydet
-          await supabase.from("solutions").insert({
+          const { error: insertError } = await supabase.from("solutions").insert({
             question_id: qData.id,
             solver_type: "ai",
-            solver_id: user?.id, // AI olduğu için sys user id veya null (RLS allow null?)
-            solution_text: aiResponseText,
-            is_approved: true
+            solver_id: user?.id,
+            solution_text: aiResponseText
           });
+
+          if (insertError) throw insertError;
 
           // Soru durumunu güncelle
           await supabase.from("questions").update({ status: "ai_answered" }).eq("id", qData.id);
 
-        } catch (aiError) {
+        } catch (aiError: any) {
           console.error("AI Auto-Solve Hatası:", aiError);
+          toast({
+            title: "Otomatik Çözüm Hatası",
+            description: "Yapay zeka cevabı üretildi ancak kaydedilemedi: " + (aiError.message || "Bilinmeyen hata"),
+            variant: "destructive",
+            duration: 5000,
+          });
           // Hata olsa bile soru kaydedildi, devam et.
         }
       }
