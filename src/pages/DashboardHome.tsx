@@ -116,7 +116,7 @@ export default function DashboardHome() {
       } else if (profile.role === 'admin') {
         navigate('/dashboard/admin');
       } else if (profile.role === 'parent') {
-        navigate('/dashboard/parent');
+        navigate('/dashboard/parent', { replace: true });
       } else {
         fetchUserClasses();
         fetchUserStats();

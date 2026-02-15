@@ -14,7 +14,7 @@ export default function Signup() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
-    const [role, setRole] = useState<"student" | "teacher">("student");
+    const [role, setRole] = useState<"student" | "teacher" | "parent">("student");
     const [gradeLevel, setGradeLevel] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -41,7 +41,13 @@ export default function Signup() {
                 title: "Hoş geldiniz! 🎉",
                 description: "Hesabınız başarıyla oluşturuldu.",
             });
-            navigate("/dashboard");
+
+            // Role based redirect after signup
+            if (role === "parent") {
+                navigate("/dashboard/parent");
+            } else {
+                navigate("/dashboard");
+            }
         } catch (err: any) {
             setError(err.message || "Kayıt olurken bir hata oluştu.");
             toast({
