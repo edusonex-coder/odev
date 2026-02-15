@@ -24,7 +24,7 @@ interface Blog {
     seo_title: string;
     seo_description: string;
     geo_target: string;
-    created_at: string;
+    published_at: string;
 }
 
 export default function AdminBlogManager() {
@@ -54,7 +54,7 @@ export default function AdminBlogManager() {
             const { data, error } = await supabase
                 .from('blogs')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('published_at', { ascending: false });
 
             if (error) throw error;
             setBlogs(data || []);
@@ -130,7 +130,12 @@ export default function AdminBlogManager() {
         if (!confirm("Hazır blogları içe aktarmak istediğinize emin misiniz?")) return;
         setLoading(true);
         try {
-            const { error } = await supabase.from('blogs').insert(blogSeeds);
+            const seedsWithDates = blogSeeds.map(s => ({
+                ...s,
+                published_at: new Date().toISOString(),
+                is_published: true
+            }));
+            const { error } = await supabase.from('blogs').insert(seedsWithDates);
             if (error) throw error;
             toast({ title: "Başarılı", description: "Örnek bloglar başarıyla eklendi!" });
             fetchBlogs();
@@ -197,7 +202,7 @@ export default function AdminBlogManager() {
                                             {blog.geo_target ? <Badge variant="outline">{blog.geo_target}</Badge> : "-"}
                                         </TableCell>
                                         <TableCell className="text-xs">
-                                            {new Date(blog.created_at).toLocaleDateString()}
+                                            {new Date(blog.published_at).toLocaleDateString()}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">

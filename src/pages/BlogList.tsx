@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, User, ArrowRight, Search, Sparkles, Youtube } from "lucide-react";
+import { Calendar, Clock, User, ArrowRight, Search, Sparkles, Youtube, Home } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 
@@ -40,9 +40,8 @@ export default function BlogList() {
 
             if (error) throw error;
 
-            // Supabase join responses can sometimes be arrays of objects for 1:N but for N:1 it should be an object.
-            // Explicitly handling the type cast for the join result.
-            const formattedBlogs = (data as any[]).map(blog => ({
+            const rawData = data || [];
+            const formattedBlogs = rawData.map((blog: any) => ({
                 ...blog,
                 author: Array.isArray(blog.author) ? blog.author[0] : blog.author
             }));
@@ -63,7 +62,15 @@ export default function BlogList() {
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
             {/* Hero Section */}
-            <div className="bg-gradient-to-r from-violet-600 to-indigo-700 pt-32 pb-20 text-white text-center px-4">
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-700 pt-32 pb-20 text-white text-center px-4 relative">
+                <div className="absolute top-8 left-8">
+                    <Link to="/">
+                        <Button variant="ghost" className="text-white hover:bg-white/20 rounded-full gap-2">
+                            <Home className="w-4 h-4" /> Anasayfa
+                        </Button>
+                    </Link>
+                </div>
+
                 <div className="max-w-4xl mx-auto space-y-6">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <Badge className="bg-white/20 hover:bg-white/30 text-white border-white/30 mb-4 px-4 py-1">
@@ -106,9 +113,11 @@ export default function BlogList() {
                             <p className="text-gray-600 font-medium leading-relaxed">
                                 Neden ÖdevGPT? Geleneksel eğitimdeki aksaklıkları nasıl gideriyoruz? Sokratik asistanımızın çalışma prensiplerini ve vizyonumuzu bu videoda keşfedin.
                             </p>
-                            <Button className="rounded-full bg-violet-600 hover:bg-violet-700 h-12 px-8 font-bold gap-2">
-                                <Youtube className="w-5 h-5" /> Şimdi İzle
-                            </Button>
+                            <a href="https://www.youtube.com/watch?v=3CxZclawVSA" target="_blank" rel="noopener noreferrer">
+                                <Button className="rounded-full bg-violet-600 hover:bg-violet-700 h-12 px-8 font-bold gap-2">
+                                    <Youtube className="w-5 h-5" /> Şimdi İzle
+                                </Button>
+                            </a>
                         </div>
                     </div>
                 </motion.div>
