@@ -1,17 +1,24 @@
--- ============================================
--- ODEVGPT: MASTER PARENT & PROFILE SYSTEM FIX
--- Tarih: 15 Şubat 2026
--- Amaç: Tüm tabloların ve fonksiyonların eksiksiz kurulması
--- ============================================
-
 -- 1. PROFILES TABLOSUNU GÜNCELLE
--- Eksik olabilecek tüm kolonları ekleyelim
+-- Kolonları ekleyelim (UNIQUE kısıtlamasını daha sonra ekleyeceğiz)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'student';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS streak INTEGER DEFAULT 0;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS parent_access_code TEXT UNIQUE DEFAULT substring(md5(random()::text), 1, 8);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS parent_access_code TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Mevcut öğrencilere rastgele benzersiz kodlar ata (Eğer kodları yoksa)
+UPDATE profiles 
+SET parent_access_code = substring(md5(random()::text || id::text), 1, 8) 
+WHERE parent_access_code IS NULL AND role = 'student';
+
+-- Şimdi UNIQUE kısıtlamasını ekleyelim
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_parent_access_code_key') THEN
+        ALTER TABLE profiles ADD CONSTRAINT profiles_parent_access_code_key UNIQUE (parent_access_code);
+    END IF;
+END $$;
 
 -- Rol kısıtlamasını güncelle
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
@@ -72,14 +79,22 @@ RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     v_student_id UUID;
     v_student_name TEXT;
+    v_role TEXT;
 BEGIN
-    SELECT id, full_name INTO v_student_id, v_student_name
-    FROM profiles WHERE parent_access_code = p_access_code AND role = 'student';
+    -- Önce kodu kullanan profili bul (hata mesajını özelleştirmek için)
+    SELECT id, full_name, role INTO v_student_id, v_student_name, v_role
+    FROM profiles 
+    WHERE parent_access_code ILIKE trim(p_access_code);
     
     IF v_student_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'message', 'Geçersiz erişim kodu.');
+        RETURN jsonb_build_object('success', false, 'message', 'Geçersiz erişim kodu. Lütfen öğrencinin profil sayfasındaki kodu girdiğinizden emin olun.');
     END IF;
     
+    IF v_role != 'student' THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Bu kod bir öğrenciye ait değil.');
+    END IF;
+    
+    -- İlişkiyi ekle
     INSERT INTO student_parent_relations (student_id, parent_id)
     VALUES (v_student_id, p_parent_id)
     ON CONFLICT (student_id, parent_id) DO NOTHING;
