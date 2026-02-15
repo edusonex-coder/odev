@@ -5,11 +5,12 @@ import { supabase } from "./supabase";
  * @param userId The ID of the user.
  * @param amount The amount of XP to grant.
  */
-export async function grantXP(userId: string, amount: number) {
+export async function grantXP(userId: string, amount: number, reason: string = 'activity') {
     try {
         const { error } = await supabase.rpc('add_xp', {
             user_id: userId,
-            amount: amount
+            amount: amount,
+            reason: reason
         });
 
         if (error) {

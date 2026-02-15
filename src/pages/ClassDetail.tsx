@@ -17,7 +17,9 @@ import {
     Sparkles,
     Send,
     Zap,
-    Wand2
+    Wand2,
+    BarChart3,
+    BrainCircuit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { enhanceAnnouncement, summarizeForStudents } from "@/lib/ai";
+import { enhanceAnnouncement, summarizeForStudents, askAI } from "@/lib/ai";
+import { motion } from "framer-motion";
 
 interface ClassData {
     id: string;
@@ -92,6 +95,8 @@ export default function ClassDetail() {
     const [isPosting, setIsPosting] = useState(false);
     const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
     const [showAssignmentForm, setShowAssignmentForm] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [classAIInsights, setClassAIInsights] = useState<string | null>(null);
 
     useEffect(() => {
         if (id) {
@@ -275,6 +280,52 @@ export default function ClassDetail() {
         }
     };
 
+    const fetchClassInsights = async () => {
+        if (!isTeacher) return;
+        setIsAnalyzing(true);
+        try {
+            // Sınıftaki öğrencilerin tüm sorularını ve konularını çek
+            const studentIds = students.map(s => s.student_id);
+            if (studentIds.length === 0) {
+                setClassAIInsights("Henüz sınıfta öğrenci yok.");
+                return;
+            }
+
+            const { data: questions } = await supabase
+                .from('questions')
+                .select('subject, question_text, status')
+                .in('student_id', studentIds)
+                .limit(50);
+
+            if (!questions || questions.length === 0) {
+                setClassAIInsights("Henüz analiz edilecek soru verisi bulunamadı.");
+                return;
+            }
+
+            const questionContext = questions.map(q => `- Konu: ${q.subject}, Metin: ${q.question_text?.substring(0, 50)}...`).join('\n');
+
+            const systemPrompt = `
+                Sen OdevGPT'nin Akademik Veri Analistisin. 
+                Görevin: Bir sınıftaki öğrencilerin sorduğu sorulardan yola çıkarak öğretmene stratejik içgörüler sunmak.
+                Analiz yaparken:
+                1. Sınıfın genel olarak hangi konularda zorlandığını tespit et.
+                2. Öğretmene derste neye odaklanması gerektiğini öner.
+                3. Motive edici ve profesyonel bir dil kullan.
+                4. Yanıtı markdown formatında (başlıklar, maddeler) ver.
+            `;
+
+            const prompt = `Aşağıdaki soru verilerine dayanarak bu sınıf için 1 haftalık akademik durum raporu hazırla:\n\n${questionContext}`;
+
+            const response = await askAI(prompt, systemPrompt);
+            setClassAIInsights(response);
+        } catch (error) {
+            console.error("Insight error:", error);
+            toast({ title: "Hata", description: "Analiz yapılırken bir sorun oluştu." });
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     const isTeacher = profile?.role === 'teacher' && classData?.teacher_id === user?.id;
 
     if (loading) {
@@ -327,11 +378,12 @@ export default function ClassDetail() {
             </div>
 
             <Tabs defaultValue="overview" className="space-y-6">
-                <TabsList className="bg-white border p-1 rounded-xl h-12 inline-flex w-full md:w-auto overflow-x-auto">
+                <TabsList className="bg-muted/50 p-1">
                     <TabsTrigger value="overview" className="rounded-lg gap-2"><BookOpen className="w-4 h-4" /> Genel Bakış</TabsTrigger>
-                    <TabsTrigger value="tasks" className="rounded-lg gap-2"><ClipboardList className="w-4 h-4" /> Ödevler & Sorular</TabsTrigger>
-                    <TabsTrigger value="students" className="rounded-lg gap-2"><Users className="w-4 h-4" /> Öğrenciler ({students.length})</TabsTrigger>
-                    <TabsTrigger value="messages" className="rounded-lg gap-2"><MessageSquare className="w-4 h-4" /> Mesajlar</TabsTrigger>
+                    <TabsTrigger value="tasks">Ödevler</TabsTrigger>
+                    <TabsTrigger value="students">Öğrenciler</TabsTrigger>
+                    {isTeacher && <TabsTrigger value="insights" className="gap-2"><Sparkles className="w-3 h-3" /> AI Analiz</TabsTrigger>}
+                    <TabsTrigger value="messages">Mesajlar</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -613,6 +665,65 @@ export default function ClassDetail() {
                         <h3 className="text-xl font-bold text-gray-700">Sınıf Mesajlaşması</h3>
                         <p className="text-muted-foreground max-w-sm mx-auto">Tüm sınıfın bir arada sohbet edebileceği alan çok yakında burada olacak.</p>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="insights">
+                    <Card className="border-2 border-primary/10 shadow-xl overflow-hidden">
+                        <CardHeader className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <BrainCircuit className="w-6 h-6" /> Sınıf İçi AI Analizi
+                                    </CardTitle>
+                                    <CardDescription className="text-violet-100">
+                                        Öğrencilerinizin sorularından yola çıkarak akademik durumu raporlar.
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    onClick={fetchClassInsights}
+                                    className="bg-white text-violet-600 hover:bg-violet-50"
+                                    disabled={isAnalyzing}
+                                >
+                                    {isAnalyzing ? (
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    ) : (
+                                        <Wand2 className="w-4 h-4 mr-2" />
+                                    )}
+                                    Analizi Başlat
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-8">
+                            {classAIInsights ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="prose prose-sm max-w-none dark:prose-invert"
+                                >
+                                    <div className="bg-violet-50/50 p-6 rounded-2xl border border-violet-100 leading-relaxed text-gray-700 whitespace-pre-wrap">
+                                        {classAIInsights}
+                                    </div>
+                                    <div className="mt-6 flex items-center gap-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs">
+                                        <Zap className="w-5 h-5" />
+                                        <span>Bu veriler son 50 öğrenci sorusu baz alınarak yapay zeka tarafından üretilmiştir.</span>
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <div className="text-center py-20 space-y-4">
+                                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                                        <BarChart3 className="w-10 h-10 text-gray-400" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-800 text-xl">Sınıfınızın Nabzını Ölçün</h3>
+                                    <p className="text-muted-foreground max-w-md mx-auto">
+                                        Yapay zeka asistanımız sınıftaki tüm soruları tarayarak hangi konularda eksiklik olduğunu size raporlar.
+                                    </p>
+                                    <Button variant="outline" onClick={fetchClassInsights} disabled={isAnalyzing}>
+                                        Şimdi Analiz Et
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>

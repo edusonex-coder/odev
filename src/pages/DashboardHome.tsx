@@ -17,7 +17,8 @@ import {
   School,
   Sparkles,
   MoreVertical,
-  LogOut
+  LogOut,
+  Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Avatar,
@@ -98,6 +100,8 @@ export default function DashboardHome() {
   const [joining, setJoining] = useState(false);
   const [userClasses, setUserClasses] = useState<UserClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
+  const [stats, setStats] = useState({ solved: 0, streak: 0, success: 0 });
+  const [weeklyXp, setWeeklyXp] = useState<any[]>([]);
 
   // Gamification stats from real profile data
   const currentXp = profile?.xp || 0;
@@ -113,9 +117,57 @@ export default function DashboardHome() {
         navigate('/dashboard/admin');
       } else {
         fetchUserClasses();
+        fetchUserStats();
       }
     }
   }, [profile, loading, navigate]);
+
+  const fetchUserStats = async () => {
+    if (!user) return;
+    try {
+      // Soru sayısı
+      const { count } = await supabase
+        .from('questions')
+        .select('*', { count: 'exact', head: true })
+        .eq('student_id', user.id);
+
+      setStats(prev => ({
+        ...prev,
+        solved: count || 0,
+        streak: profile?.streak || 0
+      }));
+
+      // Haftalık XP grafiği için logları çek (son 7 gün)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: logs } = await supabase
+        .from('xp_logs')
+        .select('created_at, amount')
+        .eq('user_id', user.id)
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      if (logs) {
+        // Logları günlere göre grupla (Basit bir mapping)
+        const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+        const chartData = days.map((day, i) => {
+          const today = new Date();
+          const d = new Date();
+          d.setDate(today.getDate() - (6 - i));
+          const dayLabel = days[d.getDay()];
+
+          const dayTotal = logs
+            .filter(log => new Date(log.created_at).toDateString() === d.toDateString())
+            .reduce((acc, curr) => acc + curr.amount, 0);
+
+          return { name: dayLabel, puan: dayTotal };
+        });
+        setWeeklyXp(chartData);
+      }
+    } catch (err) {
+      console.error("Stats fetching error:", err);
+    }
+  };
 
   const fetchUserClasses = async () => {
     if (!user) return;
@@ -301,7 +353,6 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* Level Progress Circle (Decorative) */}
           <div className="hidden md:flex items-center justify-center relative w-48 h-48">
             <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse"></div>
             <div className="absolute inset-4 bg-white/10 rounded-full backdrop-blur-sm flex flex-col items-center justify-center border border-white/20 shadow-2xl">
@@ -311,104 +362,60 @@ export default function DashboardHome() {
             </div>
           </div>
         </div>
-
-        {/* Background Patterns */}
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-fuchsia-500/20 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Sınıflarım Bölümü */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-primary" /> Sınıflarım
-          </h3>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Sol Kolon: İstatistikler, Grafik ve Sınıflar */}
+        <div className="lg:col-span-2 space-y-8">
 
-        {classesLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-32 rounded-2xl bg-gray-100 animate-pulse"></div>)}
+          {/* İstatistik Kartları */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-orange-50/50 border-orange-100 hover:shadow-md transition-all">
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                <Flame className="w-8 h-8 text-orange-500 mb-2" />
+                <div className="text-2xl font-bold text-gray-800">{profile?.streak || 0} Gün</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Seri</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-50/50 border-blue-100 hover:shadow-md transition-all">
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                <Zap className="w-8 h-8 text-blue-500 mb-2" />
+                <div className="text-2xl font-bold text-gray-800">{stats.solved}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Soru</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50/50 border-green-100 hover:shadow-md transition-all">
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                <Target className="w-8 h-8 text-green-500 mb-2" />
+                <div className="text-2xl font-bold text-gray-800">%85</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Başarı</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/dashboard/leaderboard')}>
+              <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                <Trophy className="w-8 h-8 text-purple-500 mb-2" />
+                <div className="text-2xl font-bold text-gray-800">#{stats.solved > 0 ? '12' : '--'}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Sıralama</div>
+              </CardContent>
+            </Card>
           </div>
-        ) : userClasses.length === 0 ? (
-          <Card className="border-dashed border-2 bg-gray-50/50">
-            <CardContent className="py-10 text-center">
-              <School className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-muted-foreground">Henüz bir sınıfa katılmadın.</p>
-              <p className="text-xs text-muted-foreground mt-1">Öğretmeninden aldığın kodla yukarıdaki butondan katılabilirsin.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {userClasses.map((item) => (
-              <Link key={item.id} to={`/dashboard/class/${item.classes?.id}`} className="block">
-                <Card className={`border-l-4 hover:shadow-lg transition-all cursor-pointer ${getClassColorBorder(item.classes?.color || 'blue')}`}>
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex justify-between items-start">
-                      <Badge variant="secondary" className={`text-[10px] ${getClassColorBg(item.classes?.color || 'blue')}`}>
-                        {item.classes?.schedule || 'Genel'}
-                      </Badge>
-                      <Button variant="ghost" size="icon" className="h-6 w-6"><ChevronRight className="w-4 h-4" /></Button>
-                    </div>
-                    <CardTitle className="text-lg mt-2">{item.classes?.name}</CardTitle>
-                    <CardDescription className="text-xs mt-1">
-                      Öğretmen: {item.classes?.profiles?.full_name || 'Belli değil'}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* İstatistikler */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-orange-50/50 border-orange-100 hover:shadow-md transition-all cursor-pointer">
-          <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-            <Flame className="w-8 h-8 text-orange-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-800">12 Gün</div>
-            <div className="text-xs text-muted-foreground">Seri Yakaladın! 🔥</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-blue-50/50 border-blue-100 hover:shadow-md transition-all cursor-pointer">
-          <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-            <Zap className="w-8 h-8 text-blue-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-800">45 Soru</div>
-            <div className="text-xs text-muted-foreground">Bu hafta çözülen</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50/50 border-green-100 hover:shadow-md transition-all cursor-pointer">
-          <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-            <Target className="w-8 h-8 text-green-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-800">%85</div>
-            <div className="text-xs text-muted-foreground">Başarı Oranı</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/dashboard/leaderboard')}>
-          <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-            <Trophy className="w-8 h-8 text-purple-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-800">Sıralama</div>
-            <div className="text-xs text-muted-foreground">Liderlik Tablosu</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Sol Kolon: Grafik ve Son Aktiviteler */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Haftalık Grafik */}
-          <Card className="shadow-sm border-0 bg-white ring-1 ring-gray-100">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" /> Haftalık Performans
-              </CardTitle>
-              <CardDescription>Kazandığın XP puanları</CardDescription>
+          {/* Grafik */}
+          <Card className="shadow-lg border-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-indigo-600" /> Haftalık XP Grafiği
+                </CardTitle>
+                <CardDescription>Son 7 gündeki öğrenme aktiviten</CardDescription>
+              </div>
             </CardHeader>
             <CardContent className="pl-0">
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={activityData}>
+                  <AreaChart data={weeklyXp.length > 0 ? weeklyXp : activityData}>
                     <defs>
                       <linearGradient id="colorPuan" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -417,10 +424,7 @@ export default function DashboardHome() {
                     </defs>
                     <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis hide />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
-                      cursor={{ stroke: '#8b5cf6', strokeWidth: 2 }}
-                    />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
                     <Area type="monotone" dataKey="puan" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorPuan)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -428,97 +432,101 @@ export default function DashboardHome() {
             </CardContent>
           </Card>
 
-          {/* Son Çözümler */}
+          {/* Sınıflarım */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800">Son Aktiviteler</h3>
-              <Link to="/dashboard/history" className="text-sm text-primary font-medium hover:underline">Tümünü Gör</Link>
-            </div>
-
-            {completedTasks.map((task) => (
-              <div key={task.id} className="group flex items-center justify-between p-4 bg-white rounded-2xl border hover:border-primary/30 hover:shadow-md transition-all duration-300">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${task.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                    {task.status === 'completed' ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 group-hover:text-primary transition-colors">{task.title}</h4>
-                    <p className="text-sm text-muted-foreground">{task.date}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`font-bold ${task.status === 'completed' ? 'text-green-600' : 'text-orange-600'}`}>{task.score}</span>
-                </div>
+            <h3 className="text-lg font-bold text-gray-800">Kayıtlı Sınıfların</h3>
+            {classesLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2].map(i => <div key={i} className="h-24 rounded-2xl bg-gray-100 animate-pulse"></div>)}
               </div>
-            ))}
+            ) : userClasses.length === 0 ? (
+              <div className="p-10 border-2 border-dashed rounded-2xl text-center bg-gray-50/50">
+                <p className="text-muted-foreground">Henüz bir sınıfa katılmadın.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {userClasses.map((item) => (
+                  <Link key={item.id} to={`/dashboard/class/${item.classes?.id}`}>
+                    <Card className={`hover:shadow-md transition-all border-l-4 ${getClassColorBorder(item.classes?.color || 'blue')}`}>
+                      <CardContent className="p-4 flex justify-between items-center">
+                        <div>
+                          <p className="font-bold">{item.classes?.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.classes?.profiles?.full_name}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-
         </div>
 
-        {/* Sağ Kolon: Hedefler ve Rozetler */}
-        <div className="space-y-6">
+        {/* Sağ Kolon: Günlük Görevler ve Rozetler */}
+        <div className="space-y-8">
 
-          {/* Günlük Hedefler */}
-          <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-0 shadow-lg" id="goals-card">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="w-5 h-5 text-green-400" /> Günlük Hedefler
+          <Card className="shadow-lg border-indigo-100 bg-indigo-50/30 overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Günlük Görevler
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-300">3 Soru Çöz</span>
-                  <span className="font-bold text-green-400">2/3</span>
+              <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-3">
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-bold">3 Soru Çöz</span>
+                  <Badge variant="secondary" className="bg-violet-100 text-violet-700 font-bold">+50 XP</Badge>
                 </div>
-                <Progress value={66} className="h-2 bg-gray-700" indicatorClassName="bg-green-400" />
+                <Progress value={(Math.min(stats.solved, 3) / 3) * 100} className="h-1.5" />
+                <p className="text-[10px] text-right font-medium text-gray-500">{Math.min(stats.solved, 3)}/3</p>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-300">1 Konu Tekrarı</span>
-                  <span className="font-bold text-blue-400">0/1</span>
+              <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-3">
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-bold">1 Sokratik Sohbet</span>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">+20 XP</Badge>
                 </div>
-                <Progress value={0} className="h-2 bg-gray-700" indicatorClassName="bg-blue-400" />
+                <Progress value={0} className="h-1.5" />
+                <p className="text-[10px] text-right font-medium text-gray-500">0/1</p>
               </div>
             </CardContent>
+            <CardFooter className="bg-indigo-600 text-white p-3 text-center text-[10px] font-bold">
+              HEPSİNİ TAMAMLA, SÜRPRİZ KUTU KAZAN! 🎁
+            </CardFooter>
           </Card>
 
-          {/* Rozetler */}
-          <Card>
+          <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" /> Rozet Koleksiyonu
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-yellow-500" /> Rozet Kütüphanesi
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { emoji: "🚀", name: "Başlangıç", locked: false },
-                  { emoji: "⚡", name: "Hız", locked: true },
-                  { emoji: "🔥", name: "Seri", locked: false },
-                  { emoji: "🧠", name: "Zeka", locked: true },
-                  { emoji: "💎", name: "Elmas", locked: true },
-                  { emoji: "🎓", name: "Mezun", locked: true },
-                ].map((badge, i) => (
-                  <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-xl border ${badge.locked ? 'opacity-40 bg-gray-50 grayscale' : 'bg-yellow-50/50 border-yellow-200'}`}>
-                    <span className="text-2xl mb-1">{badge.emoji}</span>
-                    <span className="text-[10px] font-medium text-gray-600">{badge.name}</span>
+                  { e: '🚀', n: 'Yolcu', l: false },
+                  { e: '⚡', n: 'Hızlı', l: true },
+                  { e: '🔥', n: 'Seri', l: false },
+                  { e: '🧠', n: 'Daha', l: true },
+                  { e: '🏆', n: 'Usta', l: true },
+                  { e: '💎', n: 'Ender', l: true },
+                ].map((b, i) => (
+                  <div key={i} className={`flex flex-col items-center p-2 rounded-xl border ${b.l ? 'opacity-30 grayscale bg-gray-50' : 'bg-yellow-50 border-yellow-200'}`}>
+                    <span className="text-xl">{b.e}</span>
+                    <span className="text-[8px] font-bold mt-1 text-gray-600 uppercase">{b.n}</span>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Premium Teaser */}
-          <div className="rounded-2xl bg-gradient-to-r from-amber-200 to-yellow-400 p-6 text-yellow-900 shadow-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Star className="w-5 h-5 fill-yellow-900" />
-              <h3 className="font-bold">Premium'a Geç</h3>
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl relative overflow-hidden group">
+            <div className="relative z-10">
+              <h3 className="font-black text-xl mb-1">PREMIUM</h3>
+              <p className="text-xs font-medium opacity-90 mb-4 line-clamp-2">Sınırsız AI kullanımı ve özel içerikler için yükselt.</p>
+              <Button size="sm" className="w-full bg-white text-orange-600 hover:bg-gray-100 font-bold">İncele</Button>
             </div>
-            <p className="text-sm font-medium opacity-90 mb-4">Sınırsız soru çözümü ve detaylı analizler için PRO ol.</p>
-            <Button size="sm" className="w-full bg-white text-yellow-800 hover:bg-white/90 border-0">
-              Detayları İncele
-            </Button>
+            <Star className="absolute -bottom-4 -right-4 w-24 h-24 text-white/20 rotate-12 group-hover:scale-110 transition-transform" />
           </div>
 
         </div>
