@@ -1,3 +1,4 @@
+/** OdevGPT Main Application */
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ import AssignmentDetail from "./pages/AssignmentDetail";
 import Leaderboard from "./pages/Leaderboard";
 import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
+import ParentPanel from "./pages/ParentPanel";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +65,7 @@ const App = () => (
               <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
               <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
               <Route path="leaderboard" element={<Leaderboard />} /> {/* Global Leaderboard */}
+              <Route path="parent" element={<ParentPanel />} /> {/* Parent Panel */}
             </Route>
 
             <Route
@@ -76,6 +79,17 @@ const App = () => (
               <Route index element={<TeacherPanel />} />
               <Route path="class/:id" element={<ClassDetail />} /> {/* Teacher Class Detail */}
               <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Teacher Assignment Detail */}
+            </Route>
+
+            <Route
+              path="/parent"
+              element={
+                <ProtectedRoute requireRole="parent">
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<ParentPanel />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

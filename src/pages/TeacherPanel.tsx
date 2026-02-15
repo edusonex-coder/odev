@@ -19,8 +19,10 @@ import {
   Palette,
   CheckCircle,
   HelpCircle,
-  Bell
+  Bell,
+  Brain
 } from "lucide-react";
+import ClassInsightsPanel from "@/components/ClassInsightsPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -308,6 +310,9 @@ export default function TeacherPanel() {
               </TabsTrigger>
               <TabsTrigger value="classes" className="rounded-lg gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                 <BookOpen className="w-4 h-4" /> Sınıflarım
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="rounded-lg gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                <Brain className="w-4 h-4" /> Sınıf Analizi
               </TabsTrigger>
               <TabsTrigger value="students" className="rounded-lg gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                 <Users className="w-4 h-4" /> Öğrenciler
@@ -634,6 +639,29 @@ export default function TeacherPanel() {
                   <span className="font-semibold text-lg">Yeni Sınıf Ekle</span>
                 </Button>
               </div>
+            )}
+          </TabsContent>
+
+          {/* CLASS INSIGHTS TAB */}
+          <TabsContent value="insights" className="space-y-6">
+            {classes.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Brain className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Sınıf Analizi İçin Sınıf Gerekli</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+                    AI destekli sınıf analizi yapabilmek için önce bir sınıf oluşturmalısınız.
+                  </p>
+                  <Button onClick={() => setIsNewClassOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> Sınıf Oluştur
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <ClassInsightsPanel
+                classId={classes[0].id}
+                className={classes[0].name}
+              />
             )}
           </TabsContent>
 

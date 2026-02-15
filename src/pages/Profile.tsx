@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Settings, LogOut, Trophy, Flame, Star, ChevronRight, BookOpen, Loader2, Edit2, Save, X } from "lucide-react";
+import {
+  User, Settings, LogOut, Trophy, Flame, Star, ChevronRight,
+  BookOpen, Loader2, Edit2, Save, X, ShieldCheck, Copy
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle
+} from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -51,8 +57,6 @@ export default function Profile() {
         description: "Değişiklikler başarıyla kaydedildi.",
       });
       setIsEditing(false);
-      // Sayfayı yenilemeye gerek yok, realtime subscription veya context update gerekebilir
-      // Şimdilik basitçe:
       window.location.reload();
     } catch (error: any) {
       toast({
@@ -180,6 +184,49 @@ export default function Profile() {
           </div>
         </div>
       </motion.div>
+
+      {/* Parent Access Code (Only for students) */}
+      {profile?.role === 'student' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <Card className="border-accent/20 bg-accent/5 overflow-hidden">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-accent" />
+                Veli Erişim Kodu
+              </CardTitle>
+              <CardDescription className="text-[10px]">
+                Bu kodu velinizle paylaşarak ilerlemenizi takip etmesini sağlayabilirsiniz.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-background border rounded-lg p-2 font-mono text-center text-lg font-bold tracking-widest text-primary">
+                  {profile?.parent_access_code || '------'}
+                </div>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    if (profile?.parent_access_code) {
+                      navigator.clipboard.writeText(profile.parent_access_code);
+                      toast({
+                        title: "Kod kopyalandı",
+                        description: "Veli erişim kodu panoya kopyalandı.",
+                      });
+                    }
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Level Progress */}
       <motion.div

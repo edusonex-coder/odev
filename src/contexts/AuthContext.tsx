@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface Profile {
     id: string;
-    role: 'student' | 'teacher' | 'admin';
+    role: 'student' | 'teacher' | 'admin' | 'parent';
     full_name: string | null;
     grade_level: number | null;
     field: string | null;
@@ -13,6 +13,7 @@ interface Profile {
     xp: number;
     level: number;
     streak: number;
+    parent_access_code: string | null;
     last_activity_at: string;
 }
 
