@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { enhanceAnnouncement, summarizeForStudents, askAI } from "@/lib/ai";
 import { motion } from "framer-motion";
+import ClassChatRoom from "@/components/ClassChatRoom";
 
 interface ClassData {
     id: string;
@@ -380,10 +381,10 @@ export default function ClassDetail() {
             <Tabs defaultValue="overview" className="space-y-6">
                 <TabsList className="bg-muted/50 p-1">
                     <TabsTrigger value="overview" className="rounded-lg gap-2"><BookOpen className="w-4 h-4" /> Genel Bakış</TabsTrigger>
+                    <TabsTrigger value="messages" className="gap-2"><MessageSquare className="w-3 h-3" /> Mesajlar</TabsTrigger>
                     <TabsTrigger value="tasks">Ödevler</TabsTrigger>
                     <TabsTrigger value="students">Öğrenciler</TabsTrigger>
                     {isTeacher && <TabsTrigger value="insights" className="gap-2"><Sparkles className="w-3 h-3" /> AI Analiz</TabsTrigger>}
-                    <TabsTrigger value="messages">Mesajlar</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -660,11 +661,7 @@ export default function ClassDetail() {
                 </TabsContent>
 
                 <TabsContent value="messages">
-                    <div className="text-center py-20 bg-white border border-dashed rounded-2xl">
-                        <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                        <h3 className="text-xl font-bold text-gray-700">Sınıf Mesajlaşması</h3>
-                        <p className="text-muted-foreground max-w-sm mx-auto">Tüm sınıfın bir arada sohbet edebileceği alan çok yakında burada olacak.</p>
-                    </div>
+                    <ClassChatRoom classId={id!} isTeacher={isTeacher} />
                 </TabsContent>
 
                 <TabsContent value="insights">
