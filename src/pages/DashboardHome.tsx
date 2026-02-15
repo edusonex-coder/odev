@@ -94,13 +94,16 @@ export default function DashboardHome() {
   const { profile, loading, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [xp, setXp] = useState(2450);
-  const [level, setLevel] = useState(5);
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [userClasses, setUserClasses] = useState<UserClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
-  const nextLevelXp = 3000;
+
+  // Gamification stats from real profile data
+  const currentXp = profile?.xp || 0;
+  const currentLevel = profile?.level || 1;
+  const nextLevelXp = currentLevel * 1000;
+  const progressToNextLevel = ((currentXp % 1000) / 1000) * 100;
 
   useEffect(() => {
     if (!loading && profile) {
@@ -303,8 +306,8 @@ export default function DashboardHome() {
             <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse"></div>
             <div className="absolute inset-4 bg-white/10 rounded-full backdrop-blur-sm flex flex-col items-center justify-center border border-white/20 shadow-2xl">
               <span className="text-sm font-medium text-violet-200">SEVİYE</span>
-              <span className="text-5xl font-black text-white">{level}</span>
-              <span className="text-xs text-violet-200 mt-1">{xp} / {nextLevelXp} XP</span>
+              <span className="text-5xl font-black text-white">{currentLevel}</span>
+              <span className="text-xs text-violet-200 mt-1">{currentXp} / {nextLevelXp} XP</span>
             </div>
           </div>
         </div>

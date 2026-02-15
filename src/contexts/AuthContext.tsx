@@ -10,6 +10,10 @@ interface Profile {
     grade_level: number | null;
     field: string | null;
     avatar_url: string | null;
+    xp: number;
+    level: number;
+    streak: number;
+    last_activity_at: string;
 }
 
 interface AuthContextType {
