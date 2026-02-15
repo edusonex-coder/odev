@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import NotificationBell from "./NotificationBell";
 
 const navItems = [
   { icon: Home, label: "Anasayfa", path: "/dashboard" },
@@ -51,6 +52,8 @@ export default function DashboardLayout() {
                 <Crown size={14} className="text-white" /> PRO
               </div>
             </Link>
+
+            <NotificationBell />
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
