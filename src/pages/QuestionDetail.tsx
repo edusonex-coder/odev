@@ -93,9 +93,10 @@ export default function QuestionDetail() {
                 Lütfen bu soruyu adım adım, açıklayıcı ve eğitici bir dille çöz. 
                 Cevabı doğrudan verme, önce ipucu ver sonra çözümü anlat. Türkçe kullan.`;
 
+                // 1. Cevabı al
                 const aiResponseText = await getAIResponse([{ role: "user", content: aiPrompt }]);
 
-                // Çözümü kaydet
+                // 2. Kaydetmeyi dene
                 const { data: solData, error: insertError } = await supabase.from("solutions").insert({
                     question_id: question.id,
                     solver_type: "ai",
@@ -103,11 +104,23 @@ export default function QuestionDetail() {
                     solution_text: aiResponseText
                 }).select().single();
 
-                if (insertError) throw insertError;
-
-                setSolutions([solData]);
-                await supabase.from("questions").update({ status: "ai_answered" }).eq("id", question.id);
-                toast.success("Çözüm hazır! 🎉");
+                if (insertError) {
+                    console.error("Çözüm kaydedilemedi (RLS veya İzin hatası):", insertError);
+                    // Kaydedilemediyse bile gösterelim (Client-side Fallback)
+                    const tempSolution: Solution = {
+                        id: "temp-ai-" + Date.now(),
+                        solution_text: aiResponseText,
+                        solver_type: "ai",
+                        created_at: new Date().toISOString()
+                    };
+                    setSolutions([tempSolution]);
+                    toast.warning("Çözüm gösteriliyor (Kaydedilemedi).", { description: "Gelecekte tekrar görüntülemek için sayfayı yenilemeyin." });
+                } else {
+                    // Başarılı kayıt
+                    setSolutions([solData]);
+                    await supabase.from("questions").update({ status: "ai_answered" }).eq("id", question.id);
+                    toast.success("Çözüm hazır! 🎉");
+                }
 
             } catch (error) {
                 console.error("Auto-solve error:", error);
