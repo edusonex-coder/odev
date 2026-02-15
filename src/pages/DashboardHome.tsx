@@ -289,6 +289,16 @@ export default function DashboardHome() {
     );
   }
 
+  if (!profile) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[50vh] gap-4">
+        <h2 className="text-xl font-bold">Profil bilgileri yüklenemedi.</h2>
+        <p className="text-muted-foreground">Lütfen internet bağlantınızı kontrol edip tekrar deneyin.</p>
+        <Button onClick={() => window.location.reload()}>Sayfayı Yenile</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-10">
 

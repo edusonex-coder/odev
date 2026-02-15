@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Camera, Upload, Send, X, Image as ImageIcon, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,27 @@ export default function AskQuestion() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Kamera akışını yöneten Effect
+  useEffect(() => {
+    if (showCamera && videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(err => console.error("Video oynatma hatası:", err));
+    }
+  }, [showCamera, stream]);
+
+  // Component unmount olduğunda kamerayı kapat
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const processImageOCR = async (file: File) => {
     setIsProcessing(true);
@@ -40,7 +58,7 @@ export default function AskQuestion() {
     try {
       const result = await Tesseract.recognize(
         file,
-        'tur', // Türkçe dil desteği
+        'tur',
         { logger: m => console.log(m) }
       );
 
@@ -95,15 +113,20 @@ export default function AskQuestion() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setShowCamera(true);
-      }
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment', // Arka kamera öncelikli
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      setStream(newStream);
+      setShowCamera(true);
     } catch (err) {
+      console.error("Kamera erişim hatası:", err);
       toast({
         title: "Kamera hatası",
-        description: "Kameraya erişilemedi.",
+        description: "Kameraya erişilemedi. Lütfen izinleri kontrol edin.",
         variant: "destructive",
       });
     }
@@ -119,7 +142,6 @@ export default function AskQuestion() {
         ctx.drawImage(videoRef.current, 0, 0);
         const dataUrl = canvas.toDataURL("image/jpeg");
         setImage(dataUrl);
-        setShowCamera(false);
 
         // DataURL'i dosyaya çevir
         fetch(dataUrl)
@@ -137,12 +159,14 @@ export default function AskQuestion() {
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
+    if (stream) {
       stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
-      setShowCamera(false);
+      setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
   };
 
   const removeImage = () => {
@@ -270,7 +294,7 @@ export default function AskQuestion() {
         <div className="relative">
           {showCamera ? (
             <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
-              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
                 <Button onClick={stopCamera} variant="secondary" size="icon" className="rounded-full w-12 h-12">
                   <X className="w-6 h-6" />
