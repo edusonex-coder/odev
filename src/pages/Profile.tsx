@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import SEO from "@/components/SEO";
 
 export default function Profile() {
   const { profile, signOut, loading } = useAuth();
@@ -79,6 +80,7 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
+      <SEO title="Profilim" />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         {/* Profile Card */}
         <div className="bg-card rounded-2xl p-6 border text-center relative overflow-hidden">

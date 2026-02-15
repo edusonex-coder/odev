@@ -3,6 +3,7 @@ import { Check, Sparkles, Zap, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import SEO from "@/components/SEO";
 
 const plans = [
     {
@@ -71,6 +72,7 @@ export default function Premium() {
 
     return (
         <div className="py-10 pb-20 space-y-10">
+            <SEO title="Premium Üyelik" description="OdevGPT Premium ile sınırsız soru sorma, ileri seviye AI çözümleri ve öğretmen desteği avantajlarından yararlanın." />
             <div className="text-center space-y-4">
                 <motion.h1
                     initial={{ opacity: 0, y: -20 }}

@@ -60,6 +60,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import SEO from "@/components/SEO";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Mock Data - Haftalık Çalışma
 const activityData = [
@@ -285,8 +287,29 @@ export default function DashboardHome() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-8 pb-10">
+        <SEO title="Yükleniyor..." />
+        {/* Hero Skeleton */}
+        <div className="h-64 rounded-3xl bg-muted animate-pulse" />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Stats Skeleton */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+            </div>
+            {/* Chart Skeleton */}
+            <Skeleton className="h-[300px] rounded-3xl" />
+            {/* Classes Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+            </div>
+          </div>
+          <div className="space-y-8">
+            <Skeleton className="h-48 rounded-3xl" />
+            <Skeleton className="h-48 rounded-3xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -303,6 +326,7 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-8 pb-10">
+      <SEO title="Öğrenci Paneli" />
 
       {/* Hero Section */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xl">

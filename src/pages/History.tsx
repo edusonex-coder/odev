@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import SEO from "@/components/SEO";
 
 interface QuestionHistory {
   id: string;
@@ -81,6 +82,7 @@ export default function History() {
 
   return (
     <div className="space-y-6 pb-20">
+      <SEO title="Soru Geçmişim" />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold mb-1">Geçmişim</h1>
         <p className="text-muted-foreground text-sm">Daha önce sorduğun sorular ({history.length})</p>

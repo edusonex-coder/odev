@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import SEO from "@/components/SEO";
 
 export default function Signup() {
     const [email, setEmail] = useState("");
@@ -62,6 +63,7 @@ export default function Signup() {
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
+            <SEO title="Kayıt Ol" />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

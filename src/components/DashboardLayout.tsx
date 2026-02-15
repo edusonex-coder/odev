@@ -40,12 +40,16 @@ export default function DashboardLayout() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-semibold">
-              <span>🔥</span> 5 gün
-            </div>
-            <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-              ⭐ 250 XP
-            </div>
+            {(profile?.streak !== undefined) && (
+              <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 text-[10px] font-bold">
+                <span>🔥</span> {profile.streak} gün
+              </div>
+            )}
+            {(profile?.xp !== undefined) && (
+              <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50/80 border border-blue-100 text-blue-600 text-[10px] font-bold">
+                ⭐ {profile.xp} XP
+              </div>
+            )}
 
             <Link to="/dashboard/premium">
               <div className="hidden md:flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-600 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer">

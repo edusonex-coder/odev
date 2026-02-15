@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import SEO from "@/components/SEO";
 
 export default function Settings() {
     const { profile, user } = useAuth();
@@ -55,6 +56,7 @@ export default function Settings() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+            <SEO title="Ayarlar" />
             <div>
                 <h1 className="text-3xl font-bold text-gray-900">Ayarlar</h1>
                 <p className="text-muted-foreground mt-1">Hesap ayarlarını ve tercihlerini buradan yönetebilirsin.</p>

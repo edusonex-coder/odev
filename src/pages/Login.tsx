@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import SEO from "@/components/SEO";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -44,6 +45,7 @@ export default function Login() {
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
+            <SEO title="Giriş Yap" />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

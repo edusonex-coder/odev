@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import SEO from '@/components/SEO';
 import {
     Users,
     Plus,
@@ -179,6 +180,7 @@ export default function ParentPanel() {
 
     return (
         <div className="container py-8 px-4 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+            <SEO title="Veli Paneli" />
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-1">

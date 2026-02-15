@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import SEO from "@/components/SEO";
 
 interface LeaderboardUser {
     id: string;
@@ -86,6 +87,7 @@ export default function Leaderboard() {
 
     return (
         <div className="container py-8 max-w-5xl mx-auto space-y-8">
+            <SEO title="Liderlik Tablosu" />
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">

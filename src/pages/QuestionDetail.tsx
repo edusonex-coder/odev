@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import SEO from "@/components/SEO";
 
 interface QuestionDetail {
     id: string;
@@ -263,6 +264,10 @@ export default function QuestionDetail() {
 
     return (
         <div className="max-w-3xl mx-auto space-y-6 pb-20">
+            <SEO
+                title={`${question.subject} Sorusu`}
+                description={`${question.subject} dersine ait soru ve çözümü. OdevGPT ile adım adım öğrenin.`}
+            />
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">

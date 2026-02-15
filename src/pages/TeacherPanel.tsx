@@ -22,6 +22,7 @@ import {
   Bell,
   Brain
 } from "lucide-react";
+import SEO from "@/components/SEO";
 import ClassInsightsPanel from "@/components/ClassInsightsPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -269,6 +270,7 @@ export default function TeacherPanel() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
+      <SEO title="Eğitmen Paneli" />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b">
         <div className="container flex items-center justify-between h-16 px-4">

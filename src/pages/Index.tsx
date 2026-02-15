@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-illustration.png";
 import LandingDemo from "@/components/LandingDemo";
+import SEO from "@/components/SEO";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -59,6 +60,10 @@ const testimonials = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Yapay Zeka Destekli Ödev Asistanı"
+        description="Ödevinin fotoğrafını çek, yapay zeka adım adım çözsün. MEB müfredatına uygun, sokatik yöntemle öğrenmeyi kolaylaştıran ders asistanı."
+      />
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass border-b">
         <div className="container flex items-center justify-between h-16">
