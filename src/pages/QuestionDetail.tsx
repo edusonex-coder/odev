@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
-import { askSocraticAI } from "@/lib/ai";
+import { askSocraticAI, getAIResponse } from "@/lib/ai";
 import { toast } from "sonner";
 import { grantXP, XP_VALUES } from "@/lib/gamification";
 
@@ -38,6 +38,7 @@ export default function QuestionDetail() {
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
     const [inputMessage, setInputMessage] = useState("");
     const [isThinking, setIsThinking] = useState(false);
+    const [isAutoSolving, setIsAutoSolving] = useState(false);
 
     useEffect(() => {
         async function fetchQuestionData() {
@@ -77,6 +78,49 @@ export default function QuestionDetail() {
             window.speechSynthesis.cancel();
         };
     }, [id, user]);
+
+    // Otomatik Çözümleyici (Eğer çözüm yoksa devreye girer)
+    useEffect(() => {
+        const autoSolve = async () => {
+            // Soru yüklendi, yükleme bitti, çözüm YOK ve henüz çözülmüyorsa
+            if (loading || !question || solutions.length > 0 || isAutoSolving) return;
+
+            setIsAutoSolving(true);
+            try {
+                toast.info("Yapay Zeka sorunu inceliyor... 🤖");
+
+                const aiPrompt = `Öğrenci sorusu (${question.subject}): ${question.question_text || "Görsel soru"}. 
+                Lütfen bu soruyu adım adım, açıklayıcı ve eğitici bir dille çöz. 
+                Cevabı doğrudan verme, önce ipucu ver sonra çözümü anlat. Türkçe kullan.`;
+
+                const aiResponseText = await getAIResponse([{ role: "user", content: aiPrompt }]);
+
+                // Çözümü kaydet
+                const { data: solData, error: insertError } = await supabase.from("solutions").insert({
+                    question_id: question.id,
+                    solver_type: "ai",
+                    solver_id: user?.id,
+                    solution_text: aiResponseText
+                }).select().single();
+
+                if (insertError) throw insertError;
+
+                setSolutions([solData]);
+                await supabase.from("questions").update({ status: "ai_answered" }).eq("id", question.id);
+                toast.success("Çözüm hazır! 🎉");
+
+            } catch (error) {
+                console.error("Auto-solve error:", error);
+                toast.error("Otomatik çözüm üretilemedi.");
+            } finally {
+                setIsAutoSolving(false);
+            }
+        };
+
+        if (!loading && question && solutions.length === 0) {
+            autoSolve();
+        }
+    }, [question, solutions, loading, user]);
 
     const handleSpeak = (text: string, solId: string) => {
         if (speakingInfo?.speaking && speakingInfo.id === solId) {
@@ -223,16 +267,26 @@ export default function QuestionDetail() {
 
                         {solutions.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
-                                <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                <p>Henüz bir çözüm bulunmuyor.</p>
-                                <p className="text-xs mt-1">Yapay zeka veya öğretmenlerimiz sorunu inceliyor.</p>
-                                <Button
-                                    className="mt-4"
-                                    variant="outline"
-                                    onClick={() => navigate("/dashboard/chat")}
-                                >
-                                    AI Asistan'a Sor
-                                </Button>
+                                {isAutoSolving ? (
+                                    <div className="flex flex-col items-center gap-3 animate-pulse">
+                                        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                                        <p className="font-medium text-primary">Yapay Zeka Soruyu Çözüyor...</p>
+                                        <p className="text-xs">Lütfen bekleyin, öğretmeniniz çözüm hazırlıyor 🤖</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                        <p>Henüz bir çözüm bulunmuyor.</p>
+                                        <p className="text-xs mt-1">Yapay zeka veya öğretmenlerimiz sorunu inceliyor.</p>
+                                        <Button
+                                            className="mt-4"
+                                            variant="outline"
+                                            onClick={() => navigate("/dashboard/chat")}
+                                        >
+                                            AI Asistan'a Sor
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-4">
