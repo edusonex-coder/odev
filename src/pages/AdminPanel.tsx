@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Users, FileQuestion, CheckCircle, ShieldAlert, GraduationCap, School, TrendingUp, BarChart3, PieChart } from "lucide-react";
+import { Loader2, Users, FileQuestion, CheckCircle, ShieldAlert, GraduationCap, School, TrendingUp, BarChart3, PieChart, Baby } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, subDays, format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -45,7 +45,7 @@ import { BookOpenText } from "lucide-react";
 interface UserProfile {
     id: string;
     full_name: string;
-    role: 'student' | 'teacher' | 'admin';
+    role: 'student' | 'teacher' | 'admin' | 'parent';
     created_at: string;
     avatar_url: string | null;
 }
@@ -58,6 +58,7 @@ interface Stats {
     students: number;
     teachers: number;
     admins: number;
+    parents: number;
 }
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
@@ -73,6 +74,7 @@ export default function AdminPanel() {
         students: 0,
         teachers: 0,
         admins: 0,
+        parents: 0,
     });
     const [weeklyData, setWeeklyData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -96,6 +98,7 @@ export default function AdminPanel() {
             const { count: studentCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
             const { count: teacherCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher');
             const { count: adminCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin');
+            const { count: parentCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'parent');
 
             setStats({
                 totalUsers: userCount || 0,
@@ -105,6 +108,7 @@ export default function AdminPanel() {
                 students: studentCount || 0,
                 teachers: teacherCount || 0,
                 admins: adminCount || 0,
+                parents: parentCount || 0,
             });
 
             // 2. Kullanıcıları Çek
@@ -141,7 +145,7 @@ export default function AdminPanel() {
         }
     };
 
-    const updateUserRole = async (userId: string, newRole: 'student' | 'teacher' | 'admin') => {
+    const updateUserRole = async (userId: string, newRole: 'student' | 'teacher' | 'admin' | 'parent') => {
         try {
             const { error } = await supabase
                 .from('profiles')
@@ -183,12 +187,13 @@ export default function AdminPanel() {
                 <h1 className="text-2xl font-bold mb-2">Erişim Engellendi</h1>
                 <p className="text-muted-foreground">Bu sayfayı görüntülemek için yönetici yetkisine sahip olmalısınız.</p>
             </div>
-        )
+        );
     }
 
     const pieData = [
         { name: 'Öğrenci', value: stats.students },
         { name: 'Öğretmen', value: stats.teachers },
+        { name: 'Veli', value: stats.parents },
         { name: 'Yönetici', value: stats.admins },
     ];
 
@@ -342,7 +347,7 @@ export default function AdminPanel() {
                             <CardTitle className="flex items-center gap-2">
                                 <Users className="w-5 h-5 text-primary" /> Son Kayıt Olan Kullanıcılar
                             </CardTitle>
-                            <CardDescription>Sisteme en son katılan 10 kullanıcı.</CardDescription>
+                            <CardDescription>Siste en son katılan 20 kullanıcı.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="rounded-md border">
@@ -383,6 +388,8 @@ export default function AdminPanel() {
                                                         <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Yönetici</Badge>
                                                     ) : user.role === 'teacher' ? (
                                                         <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Öğretmen</Badge>
+                                                    ) : user.role === 'parent' ? (
+                                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">Veli</Badge>
                                                     ) : (
                                                         <Badge variant="secondary" className="bg-slate-100 text-slate-700">Öğrenci</Badge>
                                                     )}
@@ -396,12 +403,17 @@ export default function AdminPanel() {
                                                         )}
                                                         {user.role !== 'teacher' && (
                                                             <Button size="sm" className="h-7 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200" variant="outline" onClick={() => updateUserRole(user.id, 'teacher')}>
-                                                                <School className="w-3 h-3 mr-1" /> Öğretmen
+                                                                <School className="w-3 h-3 mr-1" /> Öğr.
+                                                            </Button>
+                                                        )}
+                                                        {user.role !== 'parent' && (
+                                                            <Button size="sm" className="h-7 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" variant="outline" onClick={() => updateUserRole(user.id, 'parent')}>
+                                                                <Baby className="w-3 h-3 mr-1" /> Veli
                                                             </Button>
                                                         )}
                                                         {user.role !== 'student' && (
                                                             <Button size="sm" className="h-7 px-2 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200" variant="outline" onClick={() => updateUserRole(user.id, 'student')}>
-                                                                <GraduationCap className="w-3 h-3 mr-1" /> Öğrenci
+                                                                <GraduationCap className="w-3 h-3 mr-1" /> Öğr.
                                                             </Button>
                                                         )}
                                                     </div>
