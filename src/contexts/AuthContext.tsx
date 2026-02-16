@@ -15,6 +15,13 @@ interface Profile {
     streak: number;
     parent_access_code: string | null;
     last_activity_at: string;
+    notification_preferences?: {
+        question_answered?: boolean;
+        weekly_report?: boolean;
+        new_tasks?: boolean;
+        student_activity?: boolean;
+        assignment_graded?: boolean;
+    };
 }
 
 interface AuthContextType {

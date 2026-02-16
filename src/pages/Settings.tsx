@@ -56,7 +56,13 @@ export default function Settings() {
     // Load preferences from profile when it changes
     useEffect(() => {
         if (profile?.notification_preferences) {
-            setNotifications(profile.notification_preferences);
+            setNotifications({
+                question_answered: profile.notification_preferences.question_answered ?? true,
+                weekly_report: profile.notification_preferences.weekly_report ?? false,
+                new_tasks: profile.notification_preferences.new_tasks ?? true,
+                student_activity: profile.notification_preferences.student_activity ?? true,
+                assignment_graded: profile.notification_preferences.assignment_graded ?? true
+            });
         }
         if (profile?.full_name) {
             setFullName(profile.full_name);
