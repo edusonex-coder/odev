@@ -66,17 +66,21 @@ interface StudentActivity {
     hasSolution: boolean;
 }
 
-// Not: Grafik için şu an mock veri kullanılmaktadır. 
-// Gelecekte xp_logs tablosundan günlük toplamlar çekilecek.
-const mockChartData = [
-    { name: 'Pzt', xp: 40 },
-    { name: 'Sal', xp: 80 },
-    { name: 'Çar', xp: 120 },
-    { name: 'Per', xp: 100 },
-    { name: 'Cum', xp: 180 },
-    { name: 'Cmt', xp: 220 },
-    { name: 'Paz', xp: 200 },
-];
+interface ChartDataPoint {
+    name: string;
+    xp: number;
+}
+
+interface Assignment {
+    id: string;
+    title: string;
+    description: string;
+    due_date: string;
+    status: string;
+    submitted_at?: string;
+    grade?: number;
+    feedback?: string;
+}
 
 export default function ParentPanel() {
     const { user } = useAuth();
@@ -89,6 +93,8 @@ export default function ParentPanel() {
     const [isPairing, setIsPairing] = useState(false);
     const [studentActivities, setStudentActivities] = useState<StudentActivity[]>([]);
     const [latestAiSummary, setLatestAiSummary] = useState<string | null>(null);
+    const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
 
     const selectedStudent = students.find(s => s.student_id === selectedStudentId) || students[0];
 
@@ -104,6 +110,8 @@ export default function ParentPanel() {
         if (selectedStudentId) {
             fetchStudentActivities(selectedStudentId);
             fetchLatestReport(selectedStudentId);
+            fetchChartData(selectedStudentId);
+            fetchAssignments(selectedStudentId);
         }
     }, [selectedStudentId]);
 
@@ -125,6 +133,67 @@ export default function ParentPanel() {
             }
         } catch (err) {
             console.error("Report fetch error:", err);
+        }
+    };
+
+    const fetchChartData = async (studentId: string) => {
+        try {
+            const { data, error } = await supabase
+                .rpc('get_student_daily_xp', {
+                    p_student_id: studentId,
+                    p_days: 7
+                });
+
+            if (error) throw error;
+            if (data) {
+                setChartData(data.map((d: any) => ({
+                    name: d.day_name,
+                    xp: d.total_xp
+                })));
+            }
+        } catch (err) {
+            console.error("Chart data fetch error:", err);
+            // Hata durumunda boş grafik göster
+            setChartData([]);
+        }
+    };
+
+    const fetchAssignments = async (studentId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('submissions')
+                .select(`
+                    id,
+                    submitted_at,
+                    grade,
+                    feedback,
+                    status,
+                    assignment:assignments (
+                        id,
+                        title,
+                        description,
+                        due_date
+                    )
+                `)
+                .eq('student_id', studentId)
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+                setAssignments(data.map((s: any) => ({
+                    id: s.assignment.id,
+                    title: s.assignment.title,
+                    description: s.assignment.description,
+                    due_date: s.assignment.due_date,
+                    status: s.status,
+                    submitted_at: s.submitted_at,
+                    grade: s.grade,
+                    feedback: s.feedback
+                })));
+            }
+        } catch (err) {
+            console.error("Assignments fetch error:", err);
+            setAssignments([]);
         }
     };
 
@@ -485,7 +554,7 @@ export default function ParentPanel() {
                                         <CardContent className="pt-4">
                                             <div className="h-[280px] w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={mockChartData}>
+                                                    <AreaChart data={chartData}>
                                                         <defs>
                                                             <linearGradient id="colorXp" x1="0" y1="0" x2="0" y2="1">
                                                                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -592,26 +661,74 @@ export default function ParentPanel() {
                                 </TabsContent>
 
                                 <TabsContent value="homework">
-                                    <Card className="rounded-3xl border-none shadow-sm px-2">
+                                    <Card className="rounded-3xl border-none shadow-sm">
                                         <CardHeader>
-                                            <CardTitle className="font-bold">Ödev Takip Sistemi</CardTitle>
-                                            <CardDescription>Öğretmenler tarafından atanan aktif ödevler</CardDescription>
+                                            <CardTitle className="font-bold flex items-center gap-2">
+                                                <BookOpen className="w-5 h-5 text-primary" />
+                                                Ödev Takip Sistemi
+                                            </CardTitle>
+                                            <CardDescription>Öğretmenler tarafından atanan ödevler ve durumları</CardDescription>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className="space-y-4">
-                                                {[1, 2].map(i => (
-                                                    <div key={i} className="p-4 rounded-2xl border-2 border-dashed border-gray-100 flex items-center justify-between opacity-60">
-                                                        <div className="space-y-1">
-                                                            <div className="h-4 w-32 bg-gray-100 rounded animate-pulse"></div>
-                                                            <div className="h-3 w-24 bg-gray-50 rounded animate-pulse"></div>
-                                                        </div>
-                                                        <div className="h-8 w-20 bg-gray-100 rounded-full animate-pulse"></div>
+                                            {assignments.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                                                        <BookOpen className="w-8 h-8 text-muted-foreground/30" />
                                                     </div>
-                                                ))}
-                                                <p className="text-center text-xs text-muted-foreground mt-4 italic">
-                                                    Öğretmen paneli ile entegrasyon devam ediyor.
-                                                </p>
-                                            </div>
+                                                    <p className="text-muted-foreground italic text-sm max-w-xs px-6">
+                                                        Henüz atanmış ödev bulunmuyor.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {assignments.map((assignment) => (
+                                                        <div key={assignment.id} className="p-5 rounded-2xl border bg-card hover:shadow-md transition-all">
+                                                            <div className="flex items-start justify-between mb-3">
+                                                                <div className="flex-1">
+                                                                    <h4 className="font-bold text-base mb-1">{assignment.title}</h4>
+                                                                    <p className="text-sm text-muted-foreground line-clamp-2">{assignment.description}</p>
+                                                                </div>
+                                                                <Badge
+                                                                    variant={
+                                                                        assignment.status === 'graded' ? 'default' :
+                                                                            assignment.status === 'submitted' ? 'secondary' :
+                                                                                'outline'
+                                                                    }
+                                                                    className="ml-3"
+                                                                >
+                                                                    {assignment.status === 'graded' ? '✅ Notlandı' :
+                                                                        assignment.status === 'submitted' ? '📝 Gönderildi' :
+                                                                            '⏳ Bekliyor'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                                <div className="flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    Son Tarih: {format(new Date(assignment.due_date), 'dd MMM yyyy', { locale: tr })}
+                                                                </div>
+                                                                {assignment.submitted_at && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                                                        Teslim: {format(new Date(assignment.submitted_at), 'dd MMM HH:mm', { locale: tr })}
+                                                                    </div>
+                                                                )}
+                                                                {assignment.grade !== null && assignment.grade !== undefined && (
+                                                                    <div className="flex items-center gap-1 font-bold text-primary">
+                                                                        <Award className="w-3 h-3" />
+                                                                        Not: {assignment.grade}/100
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {assignment.feedback && (
+                                                                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                                                                    <p className="text-xs font-semibold text-muted-foreground mb-1">Öğretmen Geri Bildirimi:</p>
+                                                                    <p className="text-sm">{assignment.feedback}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 </TabsContent>
