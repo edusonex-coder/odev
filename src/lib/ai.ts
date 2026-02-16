@@ -158,3 +158,100 @@ export async function askSocraticAI(
         throw error;
     }
 }
+
+/**
+ * Veli için haftalık AI raporu oluşturur
+ * @param studentName Öğrenci adı
+ * @param stats Haftalık istatistikler
+ * @returns AI tarafından oluşturulmuş rapor metni
+ */
+export async function generateWeeklyParentReport(
+    studentName: string,
+    stats: {
+        total_questions: number;
+        solved_questions: number;
+        success_rate: number;
+        total_xp_gained: number;
+        level_ups: number;
+        recent_questions?: Array<{ question_text: string; status: string }>;
+    }
+) {
+    const systemPrompt = `
+    Sen OdevGPT'nin Veli Rapor Asistanısın.
+    Görevin: Öğrenci performansını velilere pozitif, motive edici ve bilgilendirici bir dille sunmak.
+    
+    KURALLAR:
+    1. Dil samimi ve destekleyici olmalı
+    2. Başarıları vurgula, eksiklikleri nazikçe belirt
+    3. Somut sayılar ver ama bunları anlamlı hale getir
+    4. Gelecek için yapıcı önerilerde bulun
+    5. Emoji kullan ama abartma (maksimum 3-4 tane)
+    6. Rapor 3-4 paragraf olsun, çok uzun olmasın
+    7. Pozitif bir tonla bitir
+    `;
+
+    const prompt = `
+    Lütfen ${studentName} isimli öğrenci için bir haftalık gelişim raporu oluştur.
+    
+    İstatistikler:
+    - Toplam soru sayısı: ${stats.total_questions}
+    - Çözülen soru sayısı: ${stats.solved_questions}
+    - Başarı oranı: %${stats.success_rate.toFixed(1)}
+    - Kazanılan XP: ${stats.total_xp_gained}
+    - Seviye atlaması: ${stats.level_ups} seviye
+    
+    Rapor şu bölümleri içermeli:
+    1. Genel değerlendirme (1-2 cümle)
+    2. Güçlü yönler ve başarılar
+    3. Gelişim alanları (varsa, pozitif dille)
+    4. Gelecek hafta için öneriler
+    
+    Raporu Markdown formatında yaz.
+    `;
+
+    return askAI(prompt, systemPrompt);
+}
+
+/**
+ * Rapor için AI destekli öne çıkan noktalar (highlights) oluşturur
+ */
+export async function generateReportHighlights(
+    studentName: string,
+    stats: {
+        total_questions: number;
+        solved_questions: number;
+        success_rate: number;
+        total_xp_gained: number;
+    }
+): Promise<string[]> {
+    const systemPrompt = `
+    Sen OdevGPT'nin Veli Rapor Asistanısın.
+    Görevin: Öğrenci performansından 3 öne çıkan nokta (highlight) çıkarmak.
+    
+    KURALLAR:
+    1. Her highlight kısa olmalı (maksimum 10 kelime)
+    2. Pozitif ve motive edici olmalı
+    3. Somut sayılar içermeli
+    4. Emoji kullan (her satırın başında 1 tane)
+    5. Sadece 3 madde ver, başka açıklama yapma
+    `;
+
+    const prompt = `
+    ${studentName} için 3 öne çıkan nokta oluştur:
+    - ${stats.total_questions} soru sordu
+    - ${stats.solved_questions} soru çözdü
+    - %${stats.success_rate.toFixed(1)} başarı oranı
+    - ${stats.total_xp_gained} XP kazandı
+    
+    Sadece 3 madde ver, her satır bir emoji ile başlasın.
+    `;
+
+    const response = await askAI(prompt, systemPrompt);
+
+    // Yanıtı satırlara böl ve boş satırları temizle
+    return response
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .slice(0, 3); // İlk 3 maddeyi al
+}

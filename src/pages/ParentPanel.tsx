@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import SEO from '@/components/SEO';
+import { WeeklyReportCard } from '@/components/WeeklyReportCard';
 import {
     Users,
     Plus,
@@ -283,7 +284,7 @@ export default function ParentPanel() {
             {students.length === 0 ? (
                 <Card className="border-dashed border-2 py-20 bg-muted/30 rounded-3xl">
                     <CardContent className="flex flex-col items-center justify-center text-center space-y-6">
-                        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center animate-bounce" style={{animationDuration: '3000ms'}}>
+                        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center animate-bounce" style={{ animationDuration: '3000ms' }}>
                             <UserCircle className="w-12 h-12 text-primary" />
                         </div>
                         <div className="space-y-2">
@@ -488,6 +489,12 @@ export default function ParentPanel() {
                                             </div>
                                         </CardContent>
                                     </Card>
+
+                                    {/* Haftalık AI Raporu */}
+                                    <WeeklyReportCard
+                                        studentId={selectedStudent.student_id}
+                                        studentName={selectedStudent.student_name}
+                                    />
                                 </TabsContent>
 
                                 <TabsContent value="activity">
