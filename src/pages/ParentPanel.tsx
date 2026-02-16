@@ -56,6 +56,15 @@ interface StudentSummary {
     last_activity: string;
 }
 
+interface StudentActivity {
+    id: string;
+    title: string;
+    content: string;
+    created_at: string;
+    status: string;
+    hasSolution: boolean;
+}
+
 // Grafik için mock veri (Geliştirme aşamasında)
 const mockChartData = [
     { name: 'Pzt', xp: 120 },
@@ -76,42 +85,58 @@ export default function ParentPanel() {
     const [loading, setLoading] = useState(true);
     const [pairingCode, setPairingCode] = useState('');
     const [isPairing, setIsPairing] = useState(false);
-    const [studentActivities, setStudentActivities] = useState<any[]>([]);
+    const [studentActivities, setStudentActivities] = useState<StudentActivity[]>([]);
 
     const selectedStudent = students.find(s => s.student_id === selectedStudentId) || students[0];
 
     useEffect(() => {
-        // user.id varsa ve seçili öğrenci yoksa veya liste boşsa çalışsın
+        // user.id varsa öğrencileri çek
         if (user?.id) {
             fetchStudents();
         }
-    }, [user?.id]); // Sadece ID değişirse çalışır (user obje referansı değişse bile)
+    }, [user?.id]); // Sadece user ID değişirse çalışır
 
     useEffect(() => {
+        // selectedStudentId değişirse aktiviteleri çek
         if (selectedStudentId) {
-            fetchStudentActivities();
+            fetchStudentActivities(selectedStudentId);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedStudentId]);
 
-    const fetchStudentActivities = async () => {
-        if (!selectedStudentId || !user?.id) return;
+    const fetchStudentActivities = async (studentId: string) => {
+        if (!studentId) return;
 
         try {
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                // like yerine ilike ile case-insensitive arama
-                .ilike('content', `%${selectedStudent?.student_name || ''}%`)
+            // Öğrencinin soruları ve çözüm metriklerini çek
+            const { data: questionsData, error: questionsError } = await supabase
+                .from('questions')
+                .select(`
+                    id, 
+                    question_text, 
+                    created_at, 
+                    status,
+                    solutions(id, solver_type)
+                `)
+                .eq('student_id', studentId)
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(5);
 
-            if (!error && data) {
-                setStudentActivities(data);
-            }
+            if (questionsError) throw questionsError;
+
+            // Veriyi Activity tab'ı için transform et
+            const formattedActivities = (questionsData || []).map((q: any) => ({
+                id: q.id,
+                title: q.status === 'solved' ? '✅ Çözülen Soru' : '❓ Çözüm Bekliyor',
+                content: q.question_text,
+                created_at: q.created_at,
+                status: q.status,
+                hasSolution: (q.solutions || []).length > 0
+            }));
+
+            setStudentActivities(formattedActivities);
         } catch (err) {
             console.error("Activity fetch error:", err);
+            // Hata sessizce loglanız, kullanıcıya toast gösterilmez
         }
     };
 
@@ -120,12 +145,23 @@ export default function ParentPanel() {
 
         try {
             setLoading(true);
-            // ARTIK PARAMETRE YOK! Backend auth.uid() kullanıyor.
+            // PARAMETRE YOK! Backend auth.uid() kullanıyor.
             const { data, error } = await supabase.rpc('get_parent_students');
 
             if (error) {
-                console.error('RPC Error Detailed:', JSON.stringify(error, null, 2));
-                throw error;
+                console.error('❌ get_parent_students RPC Hatası:', {
+                    code: error.code,
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                });
+                // Toast göster ama detaylı bilgi logla
+                toast({
+                    title: "Veriler yüklenemedi",
+                    description: "Veli paneli yüklü değil. Lütfen en son veri tabanı migrasyonunu çalıştırdığından emin olun.",
+                    variant: "destructive",
+                });
+                return;
             }
 
             setStudents(data || []);
@@ -133,8 +169,16 @@ export default function ParentPanel() {
                 setSelectedStudentId(data[0].student_id);
             }
         } catch (error: any) {
-            console.error('Fetch students error:', error);
-            // Hata sessizce geçiştirilip kullanıcıya yansıtılmayabilir, çünkü veri yokluğu bazen normal olabilir.
+            console.error('❌ Fetch students error:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+            });
+            toast({
+                title: "Bağlantı Hatası",
+                description: "Sunucuyla bağlantı kurulamadı.",
+                variant: "destructive",
+            });
         } finally {
             setLoading(false);
         }
@@ -145,32 +189,46 @@ export default function ParentPanel() {
 
         try {
             setIsPairing(true);
-            // SADECE KOD GÖNDERİLİYOR
+            // pair_student_with_parent(p_access_code TEXT) -> JSONB
             const { data, error } = await supabase.rpc('pair_student_with_parent', {
                 p_access_code: pairingCode.trim()
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('❌ pair_student_with_parent RPC Hatası:', {
+                    code: error.code,
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                });
+                toast({
+                    title: 'RPC Hatası',
+                    description: error.message || 'Öğrenci bağlanırken bir sorun oluştu.',
+                    variant: 'destructive',
+                });
+                return;
+            }
 
-            if (data.success) {
+            if (data?.success) {
                 toast({
                     title: '✅ Bağlantı Başarılı',
                     description: `${data.student_name} artık hesabınıza bağlandı.`,
                 });
                 setPairingCode('');
+                // Listeyi yenile
                 fetchStudents();
             } else {
                 toast({
-                    title: 'Hata',
-                    description: data.message,
+                    title: 'Bağlantı Başarısız',
+                    description: data?.message || 'Bilinmeyen bir hata oluştu.',
                     variant: 'destructive',
                 });
             }
         } catch (error: any) {
-            console.error('Pairing error:', error);
+            console.error('❌ Pairing error:', error);
             toast({
                 title: 'Bağlantı Hatası',
-                description: 'Öğrenci bağlanırken bir sorun oluştu.',
+                description: error.message || 'Öğrenci bağlanırken bir sorun oluştu.',
                 variant: 'destructive',
             });
         } finally {
@@ -225,7 +283,7 @@ export default function ParentPanel() {
             {students.length === 0 ? (
                 <Card className="border-dashed border-2 py-20 bg-muted/30 rounded-3xl">
                     <CardContent className="flex flex-col items-center justify-center text-center space-y-6">
-                        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center animate-bounce duration-[3000ms]">
+                        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center animate-bounce" style={{animationDuration: '3000ms'}}>
                             <UserCircle className="w-12 h-12 text-primary" />
                         </div>
                         <div className="space-y-2">
@@ -458,9 +516,9 @@ export default function ParentPanel() {
                                                             <div key={activity.id} className="p-4 hover:bg-muted/30 transition-colors flex gap-4 items-start relative group">
                                                                 <div className={`
                                                                     w-10 h-10 rounded-xl flex items-center justify-center shrink-0
-                                                                    ${activity.title.includes('Seviye') ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}
+                                                                    ${activity.status === 'solved' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}
                                                                 `}>
-                                                                    {activity.title.includes('Seviye') ? <Award className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                                                                    {activity.status === 'solved' ? <Award className="w-5 h-5" /> : <HelpCircle className="w-5 h-5" />}
                                                                 </div>
                                                                 <div className="flex-1 space-y-1">
                                                                     <div className="flex items-center justify-between">
@@ -469,13 +527,13 @@ export default function ParentPanel() {
                                                                             {format(new Date(activity.created_at), 'd MMM HH:mm', { locale: tr })}
                                                                         </span>
                                                                     </div>
-                                                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                                                                         {activity.content}
                                                                     </p>
                                                                 </div>
                                                                 {idx === 0 && (
                                                                     <div className="absolute top-2 right-2">
-                                                                        <Badge variant="outline" className="text-[8px] bg-green-50 text-green-700 border-green-100">YENİ</Badge>
+                                                                        <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700 border-blue-100">EN YENİ</Badge>
                                                                     </div>
                                                                 )}
                                                             </div>
