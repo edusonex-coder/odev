@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   User, Settings, LogOut, Trophy, Flame, Star, ChevronRight,
   BookOpen, Loader2, Edit2, Save, X, ShieldCheck, Copy
@@ -29,6 +30,7 @@ import SEO from "@/components/SEO";
 
 export default function Profile() {
   const { profile, signOut, loading } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [gradeLevel, setGradeLevel] = useState(profile?.grade_level?.toString() || "");
@@ -286,7 +288,10 @@ export default function Profile() {
         transition={{ delay: 0.3 }}
         className="space-y-2"
       >
-        <button className="w-full flex items-center justify-between p-4 bg-card rounded-xl border hover:bg-secondary/50 transition-colors duration-200">
+        <button
+          onClick={() => navigate('/dashboard/settings')}
+          className="w-full flex items-center justify-between p-4 bg-card rounded-xl border hover:bg-secondary/50 transition-colors duration-200"
+        >
           <div className="flex items-center gap-3">
             <Settings className="w-5 h-5 text-muted-foreground" />
             <span className="text-sm font-medium">Ayarlar</span>
@@ -294,7 +299,13 @@ export default function Profile() {
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
 
-        <button className="w-full flex items-center justify-between p-4 bg-card rounded-xl border hover:bg-secondary/50 transition-colors duration-200">
+        <button
+          onClick={() => toast({
+            title: "Yakında Geliyor! 🚀",
+            description: "Abonelik özellikleri üzerinde çalışıyoruz.",
+          })}
+          className="w-full flex items-center justify-between p-4 bg-card rounded-xl border hover:bg-secondary/50 transition-colors duration-200"
+        >
           <div className="flex items-center gap-3">
             <BookOpen className="w-5 h-5 text-muted-foreground" />
             <span className="text-sm font-medium">Abonelik</span>
