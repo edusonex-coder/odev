@@ -32,7 +32,9 @@ import {
     Star,
     Award,
     Sparkles,
-    Zap
+    Zap,
+    Calendar,
+    CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
