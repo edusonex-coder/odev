@@ -66,15 +66,16 @@ interface StudentActivity {
     hasSolution: boolean;
 }
 
-// Grafik için mock veri (Geliştirme aşamasında)
+// Not: Grafik için şu an mock veri kullanılmaktadır. 
+// Gelecekte xp_logs tablosundan günlük toplamlar çekilecek.
 const mockChartData = [
-    { name: 'Pzt', xp: 120 },
-    { name: 'Sal', xp: 250 },
-    { name: 'Çar', xp: 180 },
-    { name: 'Per', xp: 450 },
-    { name: 'Cum', xp: 300 },
-    { name: 'Cmt', xp: 550 },
-    { name: 'Paz', xp: 400 },
+    { name: 'Pzt', xp: 40 },
+    { name: 'Sal', xp: 80 },
+    { name: 'Çar', xp: 120 },
+    { name: 'Per', xp: 100 },
+    { name: 'Cum', xp: 180 },
+    { name: 'Cmt', xp: 220 },
+    { name: 'Paz', xp: 200 },
 ];
 
 export default function ParentPanel() {
@@ -87,6 +88,7 @@ export default function ParentPanel() {
     const [pairingCode, setPairingCode] = useState('');
     const [isPairing, setIsPairing] = useState(false);
     const [studentActivities, setStudentActivities] = useState<StudentActivity[]>([]);
+    const [latestAiSummary, setLatestAiSummary] = useState<string | null>(null);
 
     const selectedStudent = students.find(s => s.student_id === selectedStudentId) || students[0];
 
@@ -98,11 +100,33 @@ export default function ParentPanel() {
     }, [user?.id]); // Sadece user ID değişirse çalışır
 
     useEffect(() => {
-        // selectedStudentId değişirse aktiviteleri çek
+        // selectedStudentId değişirse verileri çek
         if (selectedStudentId) {
             fetchStudentActivities(selectedStudentId);
+            fetchLatestReport(selectedStudentId);
         }
     }, [selectedStudentId]);
+
+    const fetchLatestReport = async (studentId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('parent_reports')
+                .select('ai_summary')
+                .eq('student_id', studentId)
+                .order('week_start', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (data) {
+                setLatestAiSummary(data.ai_summary);
+            } else {
+                setLatestAiSummary(null);
+            }
+        } catch (err) {
+            console.error("Report fetch error:", err);
+        }
+    };
 
     const fetchStudentActivities = async (studentId: string) => {
         if (!studentId) return;
@@ -369,10 +393,17 @@ export default function ParentPanel() {
                                     <Award className="w-6 h-6 text-yellow-300" />
                                 </div>
                                 <h4 className="text-xl font-bold leading-tight">Yapay Zeka <br />Analizi</h4>
-                                <p className="text-indigo-100 text-sm leading-relaxed">
-                                    {selectedStudent?.student_name} son haftada matematik konularında %20 artış gösterdi.
+                                <p className="text-indigo-100 text-sm leading-relaxed line-clamp-3">
+                                    {latestAiSummary || `${selectedStudent?.student_name} için bu haftalık henüz bir analiz oluşturulmadı.`}
                                 </p>
-                                <Button variant="secondary" className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-bold rounded-xl mt-2">
+                                <Button
+                                    variant="secondary"
+                                    className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-bold rounded-xl mt-2"
+                                    onClick={() => {
+                                        const el = document.getElementById('weekly-report-card');
+                                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                >
                                     Raporu Oku
                                 </Button>
                             </CardContent>
@@ -491,10 +522,12 @@ export default function ParentPanel() {
                                     </Card>
 
                                     {/* Haftalık AI Raporu */}
-                                    <WeeklyReportCard
-                                        studentId={selectedStudent.student_id}
-                                        studentName={selectedStudent.student_name}
-                                    />
+                                    <div id="weekly-report-card">
+                                        <WeeklyReportCard
+                                            studentId={selectedStudent.student_id}
+                                            studentName={selectedStudent.student_name}
+                                        />
+                                    </div>
                                 </TabsContent>
 
                                 <TabsContent value="activity">

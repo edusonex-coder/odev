@@ -3,7 +3,7 @@
  * Veli için haftalık AI destekli öğrenci raporu kartı
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,57 @@ export function WeeklyReportCard({ studentId, studentName }: WeeklyReportCardPro
         weekEnd: Date;
     } | null>(null);
     const { toast } = useToast();
+    const [fetchedOnMount, setFetchedOnMount] = useState(false);
+
+    // Mevcut raporu çek
+    const fetchExistingReport = useCallback(async () => {
+        if (!studentId || fetchedOnMount) return;
+
+        try {
+            const now = new Date();
+            const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+
+            const { data, error } = await supabase
+                .from('parent_reports')
+                .select('*')
+                .eq('student_id', studentId)
+                .eq('week_start', format(weekStart, 'yyyy-MM-dd'))
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                // Eğer rapor varsa state'e yükle
+                setReport({
+                    summary: data.ai_summary,
+                    highlights: data.ai_highlights || [],
+                    stats: {
+                        total_questions: data.total_questions,
+                        solved_questions: data.solved_questions,
+                        success_rate: data.success_rate,
+                        total_xp_gained: data.total_xp_gained,
+                        level_ups: data.level_ups
+                    },
+                    weekStart: new Date(data.week_start),
+                    weekEnd: new Date(data.week_end)
+                });
+            }
+        } catch (error) {
+            console.error('Mevcut rapor yüklenemedi:', error);
+        } finally {
+            setFetchedOnMount(true);
+        }
+    }, [studentId, fetchedOnMount]);
+
+    useEffect(() => {
+        fetchExistingReport();
+    }, [fetchExistingReport]);
+
+    // Öğrenci değişirse tekrar çekmeyi sağla
+    useEffect(() => {
+        setFetchedOnMount(false);
+        setReport(null);
+    }, [studentId]);
 
     const generateReport = async () => {
         setLoading(true);
