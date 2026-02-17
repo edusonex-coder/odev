@@ -3,19 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Calendar,
-    ClipboardList,
-    Clock,
     FileText,
     Upload,
     CheckCircle2,
-    AlertCircle,
     Loader2,
     Send,
     MessageSquare,
     Sparkles,
     File,
     X,
-    ExternalLink
+    ExternalLink,
+    Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -25,8 +23,6 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
-import { tr } from "date-fns/locale";
 import { grantXP, XP_VALUES } from "@/lib/gamification";
 
 interface Assignment {
@@ -43,7 +39,8 @@ interface Submission {
     id: string;
     content: string | null;
     file_url: string | null;
-    grade: string | null;
+    score: number | null; // DB column is 'score'
+    grade?: number | null; // For frontend compatibility if needed
     status: string;
     student_id: string;
     created_at: string;
@@ -72,7 +69,6 @@ export default function AssignmentDetail() {
     // Teacher states
     const [gradingSub, setGradingSub] = useState<Submission | null>(null);
     const [gradeInput, setGradeInput] = useState("");
-    const [feedbackInput, setFeedbackInput] = useState("");
     const [isGrading, setIsGrading] = useState(false);
 
     const isTeacher = profile?.role === 'teacher';
@@ -119,7 +115,10 @@ export default function AssignmentDetail() {
 
                 if (subError) throw subError;
                 setSubmission(sub);
-                if (sub) setContent(sub.content || "");
+                if (sub) {
+                    setContent(sub.content || "");
+                    // Map score to 'grade' logic if needed visually, but we use 'score' in interface
+                }
             }
         } catch (error: any) {
             console.error("Hata:", error);
@@ -136,11 +135,8 @@ export default function AssignmentDetail() {
             const { error } = await supabase
                 .from('assignment_submissions')
                 .update({
-                    grade: gradeInput,
+                    score: parseInt(gradeInput),
                     status: 'graded'
-                    // We might need to add a feedback column to the table if it doesn't exist, 
-                    // otherwise we can reuse 'content' or just use the grade.
-                    // For now, let's assume we just update grade and status.
                 })
                 .eq('id', gradingSub.id);
 
@@ -148,10 +144,11 @@ export default function AssignmentDetail() {
 
             toast({ title: "Başarılı", description: "Not başarıyla verildi! 🎯" });
 
-            // Give XP to STUDENT (from teacher)
-            grantXP(gradingSub.student_id, XP_VALUES.PERFECT_GRADE); // Bonus for completion/grading
+            // Give XP to STUDENT
+            grantXP(gradingSub.student_id, XP_VALUES.PERFECT_GRADE);
 
             setGradingSub(null);
+            setGradeInput("");
             fetchAssignmentDetails();
         } catch (error: any) {
             toast({ title: "Hata", description: "Not verilirken bir hata oluştu.", variant: "destructive" });
@@ -175,7 +172,7 @@ export default function AssignmentDetail() {
                 const fileName = `${user.id}/${id}_${Math.random()}.${fileExt}`;
                 const filePath = `submissions/${fileName}`;
 
-                const { error: uploadError, data } = await supabase.storage
+                const { error: uploadError } = await supabase.storage
                     .from('assignments')
                     .upload(filePath, selectedFile, { upsert: true });
 
@@ -189,9 +186,7 @@ export default function AssignmentDetail() {
                 fileUrl = publicUrl;
             }
 
-            // 2. Clear previous file if user removed it (UI logic could be added)
-
-            // 3. Upsert submission
+            // 2. Upsert submission
             const { error } = await supabase
                 .from('assignment_submissions')
                 .upsert({
@@ -207,10 +202,8 @@ export default function AssignmentDetail() {
             setUploadProgress(100);
             toast({ title: "Başarılı", description: "Ödevin başarıyla teslim edildi! 🚀" });
 
-            // XP Kazandır
-            if (user) {
-                grantXP(user.id, XP_VALUES.ASSIGNMENT_SUBMISSION);
-            }
+            // XP Increase (Only if not already graded/submitted maybe? But re-submission is allowed usually)
+            grantXP(user.id, XP_VALUES.ASSIGNMENT_SUBMISSION);
 
             setSelectedFile(null);
             fetchAssignmentDetails();
@@ -219,7 +212,7 @@ export default function AssignmentDetail() {
             toast({ title: "Hata", description: "Ödev teslim edilirken bir hata oluştu.", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
-            setTimeout(() => setUploadProgress(0), 1000);
+            setUploadProgress(0);
         }
     };
 
@@ -303,9 +296,12 @@ export default function AssignmentDetail() {
 
                                 <div className="space-y-4 pt-4 border-t">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-bold">Not / Puan</label>
+                                        <label className="text-sm font-bold">Not / Puan (0-100)</label>
                                         <Input
-                                            placeholder="Örn: 95/100, A+, Harika!"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            placeholder="Örn: 85"
                                             value={gradeInput}
                                             onChange={(e) => setGradeInput(e.target.value)}
                                             className="font-bold text-lg"
@@ -327,6 +323,7 @@ export default function AssignmentDetail() {
                         </Card>
                     )}
 
+                    {/* Student Submission Form */}
                     {!isTeacher && (
                         <Card className="shadow-md border-primary/20">
                             <CardHeader>
@@ -391,7 +388,6 @@ export default function AssignmentDetail() {
                                                 className="h-8 w-8 text-destructive"
                                                 onClick={() => {
                                                     setSelectedFile(null);
-                                                    // In a real app, we might also want to mark the remote file for deletion
                                                 }}
                                                 disabled={submission?.status === 'graded'}
                                             >
@@ -435,7 +431,7 @@ export default function AssignmentDetail() {
 
                 {/* Right Side: Status / Feedback */}
                 <div className="space-y-6">
-                    {!isTeacher && submission?.grade && (
+                    {!isTeacher && submission?.score && (
                         <Card className="bg-green-50 border-green-200">
                             <CardHeader>
                                 <CardTitle className="text-sm text-green-800 flex items-center gap-2">
@@ -443,7 +439,7 @@ export default function AssignmentDetail() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-green-900 mb-2">{submission.grade}</div>
+                                <div className="text-2xl font-bold text-green-900 mb-2">{submission.score}</div>
                                 <p className="text-sm text-green-800">Harika iş çıkardın!</p>
                             </CardContent>
                         </Card>
@@ -463,7 +459,7 @@ export default function AssignmentDetail() {
                                             className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${gradingSub?.id === sub.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
                                             onClick={() => {
                                                 setGradingSub(sub);
-                                                setGradeInput(sub.grade || "");
+                                                setGradeInput(sub.score?.toString() || "");
                                             }}
                                         >
                                             <div className="flex items-center justify-between mb-1">

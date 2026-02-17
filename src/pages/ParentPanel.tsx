@@ -162,37 +162,78 @@ export default function ParentPanel() {
 
     const fetchAssignments = async (studentId: string) => {
         try {
-            const { data, error } = await supabase
-                .from('submissions')
+            // 1. Öğrencinin sınıflarını bul
+            const { data: classData } = await supabase
+                .from('class_students')
+                .select('class_id')
+                .eq('student_id', studentId);
+
+            const classIds = classData?.map(c => c.class_id) || [];
+
+            if (classIds.length === 0) {
+                setAssignments([]);
+                return;
+            }
+
+            // 2. Sınıflara ait tüm ödevleri çek
+            const { data: assignmentsData, error: assignError } = await supabase
+                .from('assignments')
                 .select(`
                     id,
-                    submitted_at,
-                    grade,
-                    feedback,
-                    status,
-                    assignment:assignments (
-                        id,
-                        title,
-                        description,
-                        due_date
-                    )
+                    title,
+                    description,
+                    due_date
                 `)
-                .eq('student_id', studentId)
-                .order('submitted_at', { ascending: false });
+                .in('class_id', classIds)
+                .order('due_date', { ascending: true }); // Önce yaklaşan ödevler
 
-            if (error) throw error;
-            if (data) {
-                setAssignments(data.map((s: any) => ({
-                    id: s.assignment.id,
-                    title: s.assignment.title,
-                    description: s.assignment.description,
-                    due_date: s.assignment.due_date,
-                    status: s.status,
-                    submitted_at: s.submitted_at,
-                    grade: s.grade,
-                    feedback: s.feedback
-                })));
+            if (assignError) throw assignError;
+
+            if (!assignmentsData || assignmentsData.length === 0) {
+                setAssignments([]);
+                return;
             }
+
+            // 3. Teslim durumlarını çek
+            const assignmentIds = assignmentsData.map(a => a.id);
+            const { data: submissionsData, error: subError } = await supabase
+                .from('assignment_submissions')
+                .select('assignment_id, status, score, submitted_at, feedback')
+                .eq('student_id', studentId)
+                .in('assignment_id', assignmentIds);
+
+            if (subError) throw subError;
+
+            // 4. Birleştir
+            const formattedAssignments = assignmentsData.map((assign: any) => {
+                const sub = submissionsData?.find(s => s.assignment_id === assign.id);
+
+                let status = 'pending';
+                if (sub) {
+                    if (sub.status === 'graded') status = 'graded';
+                    else status = 'submitted';
+                }
+
+                return {
+                    id: assign.id,
+                    title: assign.title,
+                    description: assign.description,
+                    due_date: assign.due_date,
+                    status: status,
+                    submitted_at: sub?.submitted_at,
+                    grade: sub?.score,
+                    feedback: sub?.feedback
+                };
+            });
+
+            // 5. Sıralama
+            formattedAssignments.sort((a, b) => {
+                const priority: Record<string, number> = { pending: 0, submitted: 1, graded: 2 };
+                return (priority[a.status] || 0) - (priority[b.status] || 0);
+            });
+
+            setAssignments(formattedAssignments);
+
         } catch (err) {
             console.error("Assignments fetch error:", err);
             setAssignments([]);

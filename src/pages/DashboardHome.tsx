@@ -63,21 +63,26 @@ import { Badge } from "@/components/ui/badge";
 import SEO from "@/components/SEO";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock Data - Haftalık Çalışma
-const activityData = [
-  { name: 'Pzt', puan: 40 },
-  { name: 'Sal', puan: 65 },
-  { name: 'Çar', puan: 30 },
-  { name: 'Per', puan: 85 },
-  { name: 'Cum', puan: 50 },
-  { name: 'Cmt', puan: 90 },
-  { name: 'Paz', puan: 60 },
-];
+interface Assignment {
+  id: string;
+  title: string;
+  description: string;
+  due_date: string;
+  status: string;
+  submitted_at?: string;
+  grade?: number;
+  feedback?: string;
+}
 
-const completedTasks = [
-  { id: 1, title: "Matematik - Türev", score: "90 XP", date: "2 saat önce", status: "completed" },
-  { id: 2, title: "Fizik - Kuvvet", score: "İnceleniyor", date: "4 saat önce", status: "pending" },
-  { id: 3, title: "Kimya - Mol Kavramı", score: "75 XP", date: "Dün", status: "completed" },
+// Mock Data - Haftalık Çalışma (Yedek)
+const defaultActivityData = [
+  { name: 'Pzt', puan: 0 },
+  { name: 'Sal', puan: 0 },
+  { name: 'Çar', puan: 0 },
+  { name: 'Per', puan: 0 },
+  { name: 'Cum', puan: 0 },
+  { name: 'Cmt', puan: 0 },
+  { name: 'Paz', puan: 0 },
 ];
 
 interface UserClass {
@@ -104,6 +109,8 @@ export default function DashboardHome() {
   const [classesLoading, setClassesLoading] = useState(true);
   const [stats, setStats] = useState({ solved: 0, streak: 0, success: 0 });
   const [weeklyXp, setWeeklyXp] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
 
   // Gamification stats from real profile data
   const currentXp = profile?.xp || 0;
@@ -122,6 +129,7 @@ export default function DashboardHome() {
       } else {
         fetchUserClasses();
         fetchUserStats();
+        fetchAssignments();
       }
     }
   }, [profile, loading, navigate]);
@@ -141,35 +149,115 @@ export default function DashboardHome() {
         streak: profile?.streak || 0
       }));
 
-      // Haftalık XP grafiği için logları çek (son 7 gün)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const { data: logs } = await supabase
-        .from('xp_logs')
-        .select('created_at, amount')
-        .eq('user_id', user.id)
-        .gte('created_at', sevenDaysAgo.toISOString());
-
-      if (logs) {
-        // Logları günlere göre grupla (Basit bir mapping)
-        const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-        const chartData = days.map((day, i) => {
-          const today = new Date();
-          const d = new Date();
-          d.setDate(today.getDate() - (6 - i));
-          const dayLabel = days[d.getDay()];
-
-          const dayTotal = logs
-            .filter(log => new Date(log.created_at).toDateString() === d.toDateString())
-            .reduce((acc, curr) => acc + curr.amount, 0);
-
-          return { name: dayLabel, puan: dayTotal };
+      // Haftalık XP grafiği için RPC fonksiyonunu kullan (get_student_daily_xp)
+      const { data: xpData, error: xpError } = await supabase
+        .rpc('get_student_daily_xp', {
+          p_student_id: user.id,
+          p_days: 7
         });
-        setWeeklyXp(chartData);
+
+      if (xpError) throw xpError;
+
+      if (xpData) {
+        // RPC'den gelen veriyi grafiğe uygun formata çevir
+        const formattedChartData = xpData.map((d: any) => ({
+          name: d.day_name,
+          puan: d.total_xp
+        }));
+        setWeeklyXp(formattedChartData);
       }
     } catch (err) {
       console.error("Stats fetching error:", err);
+      setWeeklyXp(defaultActivityData); // Hata durumunda boş grafik
+    }
+  };
+
+  const fetchAssignments = async () => {
+    if (!user) return;
+    try {
+      setAssignmentsLoading(true);
+
+      // 1. Önce öğrencinin sınıflarını al
+      const { data: userClassList } = await supabase
+        .from('class_students')
+        .select('class_id')
+        .eq('student_id', user.id);
+
+      const classIds = userClassList?.map(c => c.class_id) || [];
+
+      if (classIds.length === 0) {
+        setAssignments([]);
+        return;
+      }
+
+      // 2. Bu sınıflara ait TÜM ödevleri çek
+      const { data: assignmentsData, error: assignError } = await supabase
+        .from('assignments')
+        .select(`
+            id,
+            title,
+            description,
+            due_date
+        `)
+        .in('class_id', classIds)
+        .order('due_date', { ascending: true })
+        .limit(10);
+
+      if (assignError) throw assignError;
+
+      if (!assignmentsData || assignmentsData.length === 0) {
+        setAssignments([]);
+        return;
+      }
+
+      // 3. Öğrencinin teslim durumlarını çek
+      const assignmentIds = assignmentsData.map(a => a.id);
+      const { data: submissionsData, error: subError } = await supabase
+        .from('assignment_submissions')
+        .select('assignment_id, status, score, submitted_at, feedback')
+        .eq('student_id', user.id)
+        .in('assignment_id', assignmentIds);
+
+      if (subError) throw subError;
+
+      // 4. Verileri birleştir
+      const combinedAssignments = assignmentsData.map((assign: any) => {
+        const sub = submissionsData?.find((s: any) => s.assignment_id === assign.id);
+
+        let status = 'pending';
+        // Hiç submission yoksa -> pending (Ödev Bekliyor)
+        // Submission var, status 'pending' -> submitted (Teslim Edildi, Not Bekliyor)
+        // Submission var, status 'graded' -> graded (Notlandı)
+
+        if (sub) {
+          if (sub.status === 'graded') status = 'graded';
+          else status = 'submitted';
+        }
+
+        return {
+          id: assign.id,
+          title: assign.title,
+          description: assign.description,
+          due_date: assign.due_date,
+          status: status,
+          submitted_at: sub?.submitted_at,
+          grade: sub?.score,
+          feedback: sub?.feedback
+        };
+      });
+
+      // 5. Sıralama: Yapılmamışlar en üstte
+      combinedAssignments.sort((a, b) => {
+        const statusOrder: Record<string, number> = { pending: 0, submitted: 1, graded: 2 };
+        return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+      });
+
+      setAssignments(combinedAssignments);
+
+    } catch (err) {
+      console.error("Assignments fetch error:", err);
+    } finally {
+      setAssignmentsLoading(false);
     }
   };
 
@@ -451,7 +539,7 @@ export default function DashboardHome() {
             <CardContent className="pl-0">
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyXp.length > 0 ? weeklyXp : activityData}>
+                  <AreaChart data={weeklyXp.length > 0 ? weeklyXp : defaultActivityData}>
                     <defs>
                       <linearGradient id="colorPuan" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -467,6 +555,79 @@ export default function DashboardHome() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Bekleyen Ödevler */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary" />
+                Ödevlerim
+              </h3>
+              <Badge variant="secondary" className="rounded-full px-3">{assignments.length}</Badge>
+            </div>
+
+            {assignmentsLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+              </div>
+            ) : assignments.length === 0 ? (
+              <Card className="border-dashed border-2 py-8 bg-muted/30">
+                <CardContent className="flex flex-col items-center justify-center text-center space-y-2">
+                  <div className="p-3 bg-muted rounded-full">
+                    <CheckCircle2 className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <p className="font-bold">Harika! Bekleyen ödevin yok.</p>
+                  <p className="text-xs text-muted-foreground">Şimdilik dinlenebilir veya soru çözebilirsin.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {assignments.map((assignment) => (
+                  <Card key={assignment.id} className="hover:shadow-md transition-all border-l-4 border-l-primary group">
+                    <CardContent className="p-4 flex justify-between items-center">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-gray-900 group-hover:text-primary transition-colors">
+                            {assignment.title}
+                          </h4>
+                          <Badge
+                            variant={
+                              assignment.status === 'graded' ? 'default' :
+                                assignment.status === 'submitted' ? 'secondary' :
+                                  'outline'
+                            }
+                            className="text-[10px] h-5"
+                          >
+                            {assignment.status === 'graded' ? 'Notlandı' :
+                              assignment.status === 'submitted' ? 'Gönderildi' :
+                                'Bekliyor'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{assignment.description}</p>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium pt-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(assignment.due_date).toLocaleDateString()}
+                          </span>
+                          {assignment.grade && (
+                            <span className="flex items-center gap-1 text-green-600 font-bold">
+                              <Trophy className="w-3 h-3" />
+                              {assignment.grade} Puan
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Link to={`/dashboard/assignment/${assignment.id}`}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full bg-muted/50 group-hover:bg-primary group-hover:text-white transition-all">
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Sınıflarım */}
           <div className="space-y-4">
