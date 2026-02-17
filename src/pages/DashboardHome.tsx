@@ -18,8 +18,11 @@ import {
   Sparkles,
   MoreVertical,
   LogOut,
-  Wand2
+  Wand2,
+  Megaphone,
+  Bell
 } from "lucide-react";
+import SmartReminders from "@/components/SmartReminders";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -75,6 +78,15 @@ interface Assignment {
   feedback?: string;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  is_global: boolean;
+  created_at: string;
+}
+
 // Mock Data - Haftalık Çalışma (Yedek)
 const defaultActivityData = [
   { name: 'Pzt', puan: 0 },
@@ -113,6 +125,7 @@ export default function DashboardHome() {
   const [weeklyXp, setWeeklyXp] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   // Gamification stats from real profile data
   const currentXp = profile?.xp || 0;
@@ -132,9 +145,28 @@ export default function DashboardHome() {
         fetchUserClasses();
         fetchUserStats();
         fetchAssignments();
+        fetchAnnouncements();
       }
     }
   }, [profile, loading, navigate]);
+
+  const fetchAnnouncements = async () => {
+    if (!profile?.tenant_id) return;
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("*")
+        .or(`tenant_id.eq.${profile.tenant_id},is_global.eq.true`)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      setAnnouncements(data || []);
+    } catch (err) {
+      console.error("Announcements error:", err);
+    }
+  };
 
   const fetchUserStats = async () => {
     if (!user) return;
@@ -535,6 +567,8 @@ export default function DashboardHome() {
             </Card>
           </div>
 
+          <SmartReminders assignments={assignments} />
+
           {/* Grafik */}
           <Card className="shadow-lg border-primary/5">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -669,8 +703,40 @@ export default function DashboardHome() {
           </div>
         </div>
 
-        {/* Sağ Kolon: Günlük Görevler ve Rozetler */}
+        {/* Sağ Kolon: Duyurular, Günlük Görevler ve Rozetler */}
         <div className="space-y-8">
+
+          {/* Duyuru Bölümü */}
+          {announcements.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                  <Megaphone className="w-4 h-4" /> Duyurular
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {announcements.map(announcement => (
+                  <Card key={announcement.id} className="border-l-4 border-l-primary overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className={`text-[10px] ${announcement.type === 'urgent' ? 'text-red-600 bg-red-50 border-red-100' :
+                          announcement.is_global ? 'text-purple-600 bg-purple-50 border-purple-100' :
+                            'text-blue-600 bg-blue-50 border-blue-100'
+                          }`}>
+                          {announcement.is_global ? 'Global' : 'Kurumsal'}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(announcement.created_at).toLocaleDateString('tr-TR')}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-sm leading-tight">{announcement.title}</h4>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{announcement.content}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Card className="shadow-lg border-indigo-100 bg-indigo-50/30 overflow-hidden">
             <CardHeader className="pb-4">

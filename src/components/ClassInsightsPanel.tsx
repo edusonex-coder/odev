@@ -310,47 +310,96 @@ export default function ClassInsightsPanel({ classId, className }: ClassInsights
 
             {/* Suggested Exercises */}
             {insights?.suggested_exercises && insights.suggested_exercises.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <BookOpen className="w-5 h-5 text-blue-600" />
-                            Önerilen Alıştırmalar
-                        </CardTitle>
-                        <CardDescription>
-                            Zayıf konuları güçlendirmek için öneriler
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {insights.suggested_exercises.map((exercise, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                                >
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="font-semibold text-sm">{exercise.topic}</h4>
-                                            <Badge
-                                                variant={
-                                                    exercise.difficulty === 'easy' ? 'secondary' :
-                                                        exercise.difficulty === 'medium' ? 'default' : 'destructive'
-                                                }
-                                                className="text-xs"
-                                            >
-                                                {exercise.difficulty === 'easy' ? 'Kolay' :
-                                                    exercise.difficulty === 'medium' ? 'Orta' : 'Zor'}
-                                            </Badge>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <BookOpen className="w-5 h-5 text-blue-600" />
+                                Önerilen Alıştırmalar
+                            </CardTitle>
+                            <CardDescription>
+                                Zayıf konuları güçlendirmek için öneriler
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {insights.suggested_exercises.map((exercise, index) => (
+                                    <div
+                                        key={index}
+                                        className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                    >
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-semibold text-sm">{exercise.topic}</h4>
+                                                <Badge
+                                                    variant={
+                                                        exercise.difficulty === 'easy' ? 'secondary' :
+                                                            exercise.difficulty === 'medium' ? 'default' : 'destructive'
+                                                    }
+                                                    className="text-xs"
+                                                >
+                                                    {exercise.difficulty === 'easy' ? 'Kolay' :
+                                                        exercise.difficulty === 'medium' ? 'Orta' : 'Zor'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mb-1">
+                                                {exercise.exercise_type}
+                                            </p>
+                                            <p className="text-sm">{exercise.description}</p>
                                         </div>
-                                        <p className="text-xs text-muted-foreground mb-1">
-                                            {exercise.exercise_type}
-                                        </p>
-                                        <p className="text-sm">{exercise.description}</p>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5 text-destructive" />
+                                Dikkat Gerektiren Öğrenciler
+                            </CardTitle>
+                            <CardDescription>
+                                Başarı oranı %60'ın altında olanlar
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {studentMetrics
+                                    .filter(s => s.success_rate < 0.6)
+                                    .sort((a, b) => a.success_rate - b.success_rate)
+                                    .slice(0, 5)
+                                    .map((student, index) => (
+                                        <div key={index} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center font-bold text-xs">
+                                                    {student.student_name.charAt(0)}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium">{student.student_name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-destructive"
+                                                                style={{ width: `${student.success_rate * 100}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className="text-[10px] text-muted-foreground">%{Math.round(student.success_rate * 100)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Badge variant="outline" className="text-[10px]">Detay</Badge>
+                                        </div>
+                                    ))}
+                                {studentMetrics.filter(s => s.success_rate < 0.6).length === 0 && (
+                                    <div className="text-center py-6 text-muted-foreground italic text-sm">
+                                        Şu an tüm öğrenciler hedeflerin üzerinde! 🎉
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             )}
 
             {/* No Data State */}

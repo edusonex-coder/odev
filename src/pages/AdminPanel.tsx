@@ -42,7 +42,10 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminBlogManager from "@/components/AdminBlogManager";
-import { BookOpenText } from "lucide-react";
+import AnnouncementManager from "@/components/AnnouncementManager";
+import HoldingAnalytics from "@/components/HoldingAnalytics";
+import TenantManager from "@/components/TenantManager";
+import { BookOpenText, Megaphone, LayoutDashboard, Building2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +57,13 @@ interface UserProfile {
     role: 'student' | 'teacher' | 'admin' | 'parent';
     created_at: string;
     avatar_url: string | null;
+    tenant_id: string | null;
+    tenants?: { name: string };
+}
+
+interface Tenant {
+    id: string;
+    name: string;
 }
 
 interface Stats {
@@ -85,6 +95,8 @@ export default function AdminPanel() {
     const [weeklyData, setWeeklyData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [tenants, setTenants] = useState<Tenant[]>([]);
+    const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
     const { toast } = useToast();
 
     // System Settings State
@@ -97,29 +109,67 @@ export default function AdminPanel() {
     });
 
     useEffect(() => {
+        if (profile?.is_super_admin) {
+            fetchTenants();
+        } else if (profile?.tenant_id) {
+            setSelectedTenantId(profile.tenant_id);
+        }
+    }, [profile]);
+
+    useEffect(() => {
         fetchData();
         // Load settings from local storage if available for persistence demo
         const savedSettings = localStorage.getItem('admin_system_settings');
         if (savedSettings) {
             setSystemSettings(JSON.parse(savedSettings));
         }
-    }, []);
+    }, [selectedTenantId]);
+
+    const fetchTenants = async () => {
+        try {
+            const { data, error } = await supabase.from('tenants').select('id, name');
+            if (error) throw error;
+            setTenants(data || []);
+        } catch (err) {
+            console.error("Tenants fetch error:", err);
+        }
+    };
 
     const fetchData = async () => {
         try {
             setLoading(true);
+            const isAll = selectedTenantId === "all";
 
             // 1. Genel İstatistikler
-            const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-            const { count: questionCount } = await supabase.from('questions').select('*', { count: 'exact', head: true });
-            const { count: solutionCount } = await supabase.from('solutions').select('*', { count: 'exact', head: true });
-            const { count: pendingCount } = await supabase.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+            let userQuery = supabase.from('profiles').select('*', { count: 'exact', head: true });
+            let questionQuery = supabase.from('questions').select('*', { count: 'exact', head: true });
+            let solutionQuery = supabase.from('solutions').select('*', { count: 'exact', head: true });
+            let pendingQuery = supabase.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+
+            if (!isAll) {
+                userQuery = userQuery.eq('tenant_id', selectedTenantId);
+                questionQuery = questionQuery.eq('tenant_id', selectedTenantId);
+                solutionQuery = solutionQuery.eq('tenant_id', selectedTenantId);
+                pendingQuery = pendingQuery.eq('tenant_id', selectedTenantId);
+            }
+
+            const { count: userCount } = await userQuery;
+            const { count: questionCount } = await questionQuery;
+            const { count: solutionCount } = await solutionQuery;
+            const { count: pendingCount } = await pendingQuery;
 
             // Rol dağılımı
-            const { count: studentCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
-            const { count: teacherCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher');
-            const { count: adminCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin');
-            const { count: parentCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'parent');
+            const getRoleCount = async (role: string) => {
+                let q = supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', role);
+                if (!isAll) q = q.eq('tenant_id', selectedTenantId);
+                const { count } = await q;
+                return count || 0;
+            };
+
+            const studentCount = await getRoleCount('student');
+            const teacherCount = await getRoleCount('teacher');
+            const adminCount = await getRoleCount('admin');
+            const parentCount = await getRoleCount('parent');
 
             setStats({
                 totalUsers: userCount || 0,
@@ -133,11 +183,17 @@ export default function AdminPanel() {
             });
 
             // 2. Kullanıcıları Çek
-            const { data: userData, error: userError } = await supabase
+            let profilesQuery = supabase
                 .from('profiles')
-                .select('*')
+                .select('*, tenants(name)')
                 .order('created_at', { ascending: false })
-                .limit(50); // Son 50 kullanıcıyı çekiyoruz
+                .limit(50);
+
+            if (!isAll) {
+                profilesQuery = profilesQuery.eq('tenant_id', selectedTenantId);
+            }
+
+            const { data: userData, error: userError } = await profilesQuery;
 
             if (userError) throw userError;
             setUsers(userData as UserProfile[]);
@@ -237,12 +293,30 @@ export default function AdminPanel() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        Yönetici Paneli
+                        {profile?.is_super_admin ? "Holding Yönetici Paneli" : "Okul Yönetici Paneli"}
                     </h1>
-                    <p className="text-muted-foreground">Sistemin genel durumu, kullanıcılar ve yapılandırma.</p>
+                    <p className="text-muted-foreground">
+                        {profile?.is_super_admin ? "Tüm okulların genel durumu ve yönetimi." : "Kurumunuzun genel durumu ve kullanıcıları."}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button onClick={fetchData} variant="outline" size="sm" className="gap-2">
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    {profile?.is_super_admin && (
+                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border shadow-sm w-full md:w-auto">
+                            <School className="w-4 h-4 ml-2 text-primary" />
+                            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                                <SelectTrigger className="w-[200px] border-none focus:ring-0">
+                                    <SelectValue placeholder="Okul Seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tüm Okullar</SelectItem>
+                                    {tenants.map(t => (
+                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    <Button onClick={fetchData} variant="outline" size="sm" className="gap-2 w-full md:w-auto">
                         <TrendingUp className="w-4 h-4" /> Verileri Yenile
                     </Button>
                 </div>
@@ -262,6 +336,19 @@ export default function AdminPanel() {
                     <TabsTrigger value="blogs" className="rounded-lg gap-2">
                         <BookOpenText className="w-4 h-4" /> Blog Yönetimi
                     </TabsTrigger>
+                    <TabsTrigger value="announcements" className="rounded-lg gap-2">
+                        <Megaphone className="w-4 h-4" /> Duyurular
+                    </TabsTrigger>
+                    {profile?.is_super_admin && (
+                        <TabsTrigger value="holding" className="rounded-lg gap-2">
+                            <LayoutDashboard className="w-4 h-4 text-purple-600" /> Holding Analizi
+                        </TabsTrigger>
+                    )}
+                    {profile?.is_super_admin && (
+                        <TabsTrigger value="tenants" className="rounded-lg gap-2">
+                            <Building2 className="w-4 h-4 text-blue-600" /> Kurum Yönetimi
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 {/* DASHBOARD CONTENT */}
@@ -403,6 +490,7 @@ export default function AdminPanel() {
                                         <TableRow className="bg-muted/50">
                                             <TableHead className="w-[80px]">Avatar</TableHead>
                                             <TableHead>Ad Soyad</TableHead>
+                                            {profile?.is_super_admin && selectedTenantId === "all" && <TableHead>Okul</TableHead>}
                                             <TableHead>Kayıt Tarihi</TableHead>
                                             <TableHead>Rol</TableHead>
                                             <TableHead className="text-right">İşlemler</TableHead>
@@ -432,6 +520,13 @@ export default function AdminPanel() {
                                                             <span className="text-xs text-muted-foreground">{user.id}</span>
                                                         </div>
                                                     </TableCell>
+                                                    {profile?.is_super_admin && selectedTenantId === "all" && (
+                                                        <TableCell>
+                                                            <Badge variant="secondary" className="font-medium">
+                                                                {user.tenants?.name || "Bağımsız"}
+                                                            </Badge>
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell>
                                                         <Badge variant="outline" className="font-normal text-muted-foreground">
                                                             {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: tr })}
@@ -582,6 +677,22 @@ export default function AdminPanel() {
                 <TabsContent value="blogs">
                     <AdminBlogManager />
                 </TabsContent>
+
+                <TabsContent value="announcements">
+                    <AnnouncementManager selectedTenantId={selectedTenantId} />
+                </TabsContent>
+
+                {profile?.is_super_admin && (
+                    <TabsContent value="holding">
+                        <HoldingAnalytics />
+                    </TabsContent>
+                )}
+
+                {profile?.is_super_admin && (
+                    <TabsContent value="tenants">
+                        <TenantManager />
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
     );

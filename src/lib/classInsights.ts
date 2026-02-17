@@ -2,15 +2,10 @@
  * CLASS INSIGHTS AI SERVICE
  * 
  * Sınıf performansını analiz eden ve öğretmenlere pedagojik öneriler sunan AI servisi.
- * Groq API kullanarak zayıf konuları tespit eder ve öğretim stratejileri önerir.
+ * Merkezi AI servisini kullanarak zayıf konuları tespit eder ve öğretim stratejileri önerir.
  */
 
-import Groq from "groq-sdk";
-
-const groq = new Groq({
-    apiKey: import.meta.env.VITE_GROQ_API_KEY,
-    dangerouslyAllowBrowser: true,
-});
+import { askAI } from "./ai";
 
 export interface WeakTopic {
     topic: string;
@@ -93,7 +88,7 @@ async function generateTeachingRecommendations(
         return "🎉 Harika! Sınıfınız tüm konularda başarılı. Öğrencilerinizi tebrik edin ve daha ileri seviye konulara geçebilirsiniz.";
     }
 
-    const topicList = weakTopics.map(t => 
+    const topicList = weakTopics.map(t =>
         `- ${t.topic} (Zorluk: ${(t.difficulty_score * 100).toFixed(0)}%, ${t.student_count} öğrenci)`
     ).join('\n');
 
@@ -113,14 +108,9 @@ GÖREV:
 
 ÖNERİLER (Maksimum 300 kelime):`;
 
-    const completion = await groq.chat.completions.create({
-        messages: [{ role: "user", content: prompt }],
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.7,
-        max_tokens: 500,
-    });
+    const response = await askAI(prompt, "Sen deneyimli bir eğitim danışmanısın. Bir öğretmene sınıfının performansı hakkında pedagojik öneriler sunuyorsun.");
 
-    return completion.choices[0]?.message?.content || "AI önerileri oluşturulamadı.";
+    return response || "AI önerileri oluşturulamadı.";
 }
 
 /**
@@ -144,23 +134,17 @@ Alıştırma Türü: [tür]
 Açıklama: [açıklama]`;
 
         try {
-            const completion = await groq.chat.completions.create({
-                messages: [{ role: "user", content: prompt }],
-                model: "llama-3.3-70b-versatile",
-                temperature: 0.8,
-                max_tokens: 150,
-            });
+            const response = await askAI(prompt, "Sen bir eğitim materyali tasarımcısısın. Konulara göre etkili alıştırmalar önerirsin.");
 
-            const response = completion.choices[0]?.message?.content || "";
             const typeMatch = response.match(/Alıştırma Türü:\s*(.+)/i);
             const descMatch = response.match(/Açıklama:\s*(.+)/i);
 
             exercises.push({
                 topic: topic.topic,
                 exercise_type: typeMatch?.[1]?.trim() || "Pratik Soruları",
-                difficulty: topic.difficulty_score > 0.8 ? 'easy' : 
-                           topic.difficulty_score > 0.6 ? 'medium' : 'hard',
-                description: descMatch?.[1]?.trim() || "Konuyu pekiştirmek için alıştırmalar yapın.",
+                difficulty: topic.difficulty_score > 0.8 ? 'easy' :
+                    topic.difficulty_score > 0.6 ? 'medium' : 'hard',
+                description: descMatch?.[1]?.trim() || response.substring(0, 100),
             });
         } catch (error) {
             console.error(`Exercise generation error for ${topic.topic}:`, error);

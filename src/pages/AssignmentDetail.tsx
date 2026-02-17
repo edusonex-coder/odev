@@ -24,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { grantXP, XP_VALUES } from "@/lib/gamification";
+import { askAI } from "@/lib/ai";
 
 interface Assignment {
     id: string;
@@ -69,7 +70,9 @@ export default function AssignmentDetail() {
     // Teacher states
     const [gradingSub, setGradingSub] = useState<Submission | null>(null);
     const [gradeInput, setGradeInput] = useState("");
+    const [feedbackInput, setFeedbackInput] = useState(""); // New field
     const [isGrading, setIsGrading] = useState(false);
+    const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
     const isTeacher = profile?.role === 'teacher';
 
@@ -136,6 +139,7 @@ export default function AssignmentDetail() {
                 .from('assignment_submissions')
                 .update({
                     score: parseInt(gradeInput),
+                    feedback: feedbackInput, // Save feedback
                     status: 'graded'
                 })
                 .eq('id', gradingSub.id);
@@ -149,11 +153,34 @@ export default function AssignmentDetail() {
 
             setGradingSub(null);
             setGradeInput("");
+            setFeedbackInput("");
             fetchAssignmentDetails();
         } catch (error: any) {
             toast({ title: "Hata", description: "Not verilirken bir hata oluştu.", variant: "destructive" });
         } finally {
             setIsGrading(false);
+        }
+    };
+
+    const generateAIFeedback = async () => {
+        if (!gradingSub || !assignment) return;
+        setIsGeneratingFeedback(true);
+        try {
+            const prompt = `
+                Ödev Başlığı: ${assignment.title}
+                Ödev Açıklaması: ${assignment.description}
+                Öğrenci Yanıtı: ${gradingSub.content}
+                
+                Bu öğrenci yanıtını analiz et ve öğretmen için kısa, yapıcı ve profesyonel bir "geri bildirim" metni yaz. 
+                Öğrencinin neyi iyi yaptığını ve neyi geliştirebileceğini belirt. Maksimum 2 cümlede bitir.
+            `;
+            const response = await askAI(prompt, "Sen bir öğretmen asistanısın. Öğrencilere yapıcı ve eğitici geri bildirimler hazırlarsın.");
+            setFeedbackInput(response);
+            toast({ title: "AI Geri Bildirimi Hazır ✨", description: "Metin kutusuna eklendi." });
+        } catch (err) {
+            toast({ title: "Hata", description: "AI geri bildirimi oluşturulamadı.", variant: "destructive" });
+        } finally {
+            setIsGeneratingFeedback(false);
         }
     };
 
@@ -295,6 +322,26 @@ export default function AssignmentDetail() {
                                 )}
 
                                 <div className="space-y-4 pt-4 border-t">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-bold">Öğretmen Geri Bildirimi</label>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-[10px] gap-1.5 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                                            onClick={generateAIFeedback}
+                                            disabled={isGeneratingFeedback || !gradingSub.content}
+                                        >
+                                            {isGeneratingFeedback ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                            AI Önerisi Al
+                                        </Button>
+                                    </div>
+                                    <Textarea
+                                        placeholder="Öğrenciye notunu veya önerilerini yaz..."
+                                        value={feedbackInput}
+                                        onChange={(e) => setFeedbackInput(e.target.value)}
+                                        className="text-sm"
+                                    />
+
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold">Not / Puan (0-100)</label>
                                         <Input

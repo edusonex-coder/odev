@@ -2,6 +2,7 @@
  * AI Service for OdevGPT
  * Supports multiple providers: Groq, Gemini, OpenAI, Claude
  */
+import { supabase } from "./supabase";
 
 // Model Configuration
 interface AIProviderConfig {
@@ -116,73 +117,87 @@ Görevin: Öğrencilerin sorularını sadece çözmek değil, onlara konuyu öğ
 `;
 
 /**
- * Unified AI Request Handler
- * Handles differences between OpenAI-compatible APIs (Groq, Gemini, OpenAI) and others (Anthropic)
+ * Unified AI Request Handler with Automatic Fallback & Logging
  */
 async function makeAIRequest(messages: { role: string; content: string }[], temperature: number = 0.7) {
-    const provider = getActiveProvider();
+    const primaryProvider = getActiveProvider();
 
-    if (!provider.apiKey) {
-        throw new Error(`Hiçbir AI servis sağlayıcısı için API anahtarı bulunamadı (.env dosyasını kontrol edin: VITE_GROQ_API_KEY veya VITE_GEMINI_API_KEY).`);
-    }
+    // Fallback listesi: seçilen dışındakileri ekle
+    const fallbackProviders = [
+        PROVIDERS["groq-llama3"],
+        PROVIDERS["gemini-flash"],
+        PROVIDERS["gpt-4o"]
+    ].filter(p => p.model !== primaryProvider.model && p.apiKey);
 
-    console.log(`Using AI Provider: ${provider.label}`);
+    const providersToTry = [primaryProvider, ...fallbackProviders];
+    let lastError = null;
 
-    // Anthropic (Claude) Special Handling
-    if (provider.model.includes('claude')) {
-        // Claude API formatı farklıdır (messages array, max_tokens vb.)
-        // Şimdilik sadece OpenAI uyumlu olanları destekliyoruz.
-        // Eğer Claude seçildiyse ve buradaysa, hata fırlatmayalım, Groq'a fallback yapalım.
-        if (PROVIDERS["groq-llama3"].apiKey) {
-            console.warn("Claude API not fully implemented yet, falling back to Groq.");
-            const fallback = PROVIDERS["groq-llama3"];
-            // Recursion yerine manuel fetch yapalım
-            const response = await fetch(fallback.url, {
+    for (const provider of providersToTry) {
+        if (!provider.apiKey) continue;
+
+        try {
+            console.log(`AI Request: Attempting with ${provider.label}...`);
+            const response = await fetch(provider.url, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${fallback.apiKey}`,
+                    "Authorization": `Bearer ${provider.apiKey}`,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: fallback.model,
+                    model: provider.model,
                     messages: messages,
                     temperature: temperature,
                 }),
             });
-            if (!response.ok) throw new Error("AI Fallback Error");
-            const data = await response.json();
-            return data.choices[0].message.content;
-        }
-        throw new Error("Claude API implementation pending.");
-    }
 
-    // Standard OpenAI Compatible Request (Groq, Gemini, OpenAI)
-    try {
-        const response = await fetch(provider.url, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${provider.apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                // Rate limit (429) veya Server Error durumunda bir sonrakini dene
+                if (response.status === 429 || response.status >= 500) {
+                    console.warn(`${provider.label} limit/error (${response.status}). Trying next provider...`);
+                    lastError = data.error?.message || response.statusText;
+                    continue;
+                }
+                throw new Error(`AI API Hatası (${provider.label}): ${data.error?.message || response.statusText}`);
+            }
+
+            // Başarılı yanıt geldiyse logla ve dön
+            const content = data.choices[0].message.content;
+            const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+            // Arkaplanda logla (beklemeye gerek yok)
+            supabase.from("ai_usage_logs").insert({
+                provider: provider.label,
                 model: provider.model,
-                messages: messages,
-                temperature: temperature,
-            }),
-        });
+                prompt_tokens: usage.prompt_tokens,
+                completion_tokens: usage.completion_tokens,
+                total_tokens: usage.total_tokens,
+                status: 'success'
+            }).then(({ error }) => error && console.error("Usage log error:", error));
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`AI API Hatası (${provider.label}): ${response.status} - ${JSON.stringify(errorData)}`);
+            return content;
+
+        } catch (error: any) {
+            console.error(`${provider.label} request failed:`, error.message);
+            lastError = error.message;
+
+            // Eğer bu son provider ise hatayı fırlat
+            if (provider === providersToTry[providersToTry.length - 1]) {
+                // Başarısızlık durumunu logla
+                supabase.from("ai_usage_logs").insert({
+                    provider: provider.label,
+                    model: provider.model,
+                    status: 'failed',
+                    error_message: error.message
+                }).then(({ error }) => error && console.error("Usage log error:", error));
+
+                throw new Error(`Sistem şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin. (Hata: ${lastError})`);
+            }
         }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
-
-    } catch (error) {
-        console.error("AI Request Failed:", error);
-        throw error;
     }
+
+    throw new Error(`AI servislerine ulaşılamıyor. Lütfen API anahtarlarınızı kontrol edin.`);
 }
 
 export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.") {

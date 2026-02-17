@@ -23,6 +23,7 @@ interface Profile {
         assignment_graded?: boolean;
     };
     tenant_id: string | null;
+    is_super_admin: boolean;
 }
 
 interface AuthContextType {

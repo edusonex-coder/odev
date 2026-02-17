@@ -20,7 +20,8 @@ import {
   CheckCircle,
   HelpCircle,
   Bell,
-  Brain
+  Brain,
+  Megaphone
 } from "lucide-react";
 import SEO from "@/components/SEO";
 import ClassInsightsPanel from "@/components/ClassInsightsPanel";
@@ -143,6 +144,13 @@ export default function TeacherPanel() {
   const [newClassName, setNewClassName] = useState("");
   const [newClassSchedule, setNewClassSchedule] = useState("");
   const [newClassColor, setNewClassColor] = useState("blue");
+
+  // AI Announcement States
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
+  const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementDraft, setAnnouncementDraft] = useState("");
+  const [isEnhancingAnnouncement, setIsEnhancingAnnouncement] = useState(false);
+  const [targetClassId, setTargetClassId] = useState<string>("all");
 
   useEffect(() => {
     fetchData();
@@ -286,6 +294,46 @@ export default function TeacherPanel() {
     }
   };
 
+  const enhanceAnnouncement = async () => {
+    if (!announcementDraft) return;
+    setIsEnhancingAnnouncement(true);
+    try {
+      const { askAI } = await import("@/lib/ai");
+      const prompt = `
+        Aşağıdaki taslak duyuruyu daha profesyonel, nazik ve net bir eğitim duyurusu haline getir.
+        Öğrenci ve veliler tarafından okunacak. Duyuru çok uzun olmasın (max 100 kelime).
+        Taslak: ${announcementDraft}
+      `;
+      const response = await askAI(prompt, "Sen bir okul müdürü ve iletişim uzmanısın. Net ve motive edici duyurular yazarsın.");
+      setAnnouncementContent(response);
+      toast({ title: "AI Duyuruyu Hazırladı! ✨", description: "Duyuru metni güncellendi." });
+    } catch (err) {
+      toast({ title: "Hata", description: "AI duyuru oluşturamadı.", variant: "destructive" });
+    } finally {
+      setIsEnhancingAnnouncement(false);
+    }
+  };
+
+  const handlePostAnnouncement = async () => {
+    if (!announcementContent || !user) return;
+    try {
+      const { error } = await supabase.from('announcements').insert({
+        title: announcementContent.split('\n')[0].substring(0, 50) + "...",
+        content: announcementContent,
+        class_id: targetClassId === "all" ? null : targetClassId,
+        teacher_id: user.id,
+        is_global: targetClassId === "all"
+      });
+      if (error) throw error;
+      toast({ title: "Duyuru Yayınlandı! 📢", description: "Tüm sınıfa bildirim gönderildi." });
+      setIsAnnouncementOpen(false);
+      setAnnouncementContent("");
+      setAnnouncementDraft("");
+    } catch (err: any) {
+      toast({ title: "Hata", description: err.message, variant: "destructive" });
+    }
+  };
+
   const getPublicUrl = (path: string | null) => {
     if (!path) return null;
     return supabase.storage.from("question_images").getPublicUrl(path).data.publicUrl;
@@ -373,50 +421,116 @@ export default function TeacherPanel() {
               </TabsTrigger>
             </TabsList>
 
-            {activeTab === 'classes' && (
-              <Dialog open={isNewClassOpen} onOpenChange={setIsNewClassOpen}>
+            <div className="flex items-center gap-2 ml-auto">
+              {/* AI Duyuru Butonu */}
+              <Dialog open={isAnnouncementOpen} onOpenChange={setIsAnnouncementOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" className="gap-2 ml-4 bg-primary text-white hover:bg-primary/90">
-                    <Plus className="w-4 h-4" /> Yeni Sınıf
+                  <Button variant="outline" size="sm" className="gap-2 border-primary/20 text-primary hover:bg-primary/5 bg-white">
+                    <Megaphone className="w-4 h-4" /> AI Duyuru
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
-                    <DialogTitle>Yeni Sınıf Oluştur</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                      <Sparkles className="w-6 h-6 text-primary" /> AI Duyuru Asistanı
+                    </DialogTitle>
                     <DialogDescription>
-                      Sınıf bilgilerini girerek yeni bir ders grubu oluşturun.
+                      Taslak notlarınızı girin, AI sizin için profesyonel bir içerik hazırlasın.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-right">Sınıf Adı</Label>
-                      <Input id="name" placeholder="Örn: 10-A Matematik" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} className="col-span-3" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="schedule" className="text-right">Ders Saati (Opsiyonel)</Label>
-                      <Input id="schedule" placeholder="Örn: Pazartesi 09:00" value={newClassSchedule} onChange={(e) => setNewClassSchedule(e.target.value)} className="col-span-3" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="color" className="text-right">Renk Teması</Label>
-                      <Select value={newClassColor} onValueChange={setNewClassColor}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Bir renk seçin" />
+                      <Label className="font-bold">Hangi Sınıfa?</Label>
+                      <Select value={targetClassId} onValueChange={setTargetClassId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sınıf seçin" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="blue"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div>Mavi</div></SelectItem>
-                          <SelectItem value="green"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div>Yeşil</div></SelectItem>
-                          <SelectItem value="purple"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Mor</div></SelectItem>
-                          <SelectItem value="orange"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div>Turuncu</div></SelectItem>
+                          <SelectItem value="all">Tüm Sınıflarım</SelectItem>
+                          {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold">Notlarınız</Label>
+                      <Textarea
+                        placeholder="Örn: sınav çarşambaya ertelendi, herkes hazırlıklı gelsin."
+                        value={announcementDraft}
+                        onChange={(e) => setAnnouncementDraft(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+                      <Button
+                        onClick={enhanceAnnouncement}
+                        disabled={isEnhancingAnnouncement || !announcementDraft}
+                        variant="secondary"
+                        className="w-full gap-2 text-xs h-9 bg-primary/10 text-primary hover:bg-primary/20"
+                      >
+                        {isEnhancingAnnouncement ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        AI ile Zenginleştir
+                      </Button>
+                    </div>
+                    {announcementContent && (
+                      <div className="space-y-2 pt-4 border-t animate-in fade-in slide-in-from-top-2 duration-300">
+                        <Label className="font-bold">Yayınlanacak Metin</Label>
+                        <Textarea
+                          className="min-h-[120px] text-sm leading-relaxed"
+                          value={announcementContent}
+                          onChange={(e) => setAnnouncementContent(e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
-                    <Button type="submit" onClick={handleCreateClass}>Oluştur</Button>
+                    <Button onClick={handlePostAnnouncement} disabled={!announcementContent} className="w-full bg-primary hover:bg-primary/90">Duyuruyu Paylaş</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            )}
+
+              {activeTab === 'classes' && (
+                <Dialog open={isNewClassOpen} onOpenChange={setIsNewClassOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-2 bg-primary text-white hover:bg-primary/90">
+                      <Plus className="w-4 h-4" /> Yeni Sınıf
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Yeni Sınıf Oluştur</DialogTitle>
+                      <DialogDescription>
+                        Sınıf bilgilerini girerek yeni bir ders grubu oluşturun.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-right">Sınıf Adı</Label>
+                        <Input id="name" placeholder="Örn: 10-A Matematik" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} className="col-span-3" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="schedule" className="text-right">Ders Saati (Opsiyonel)</Label>
+                        <Input id="schedule" placeholder="Örn: Pazartesi 09:00" value={newClassSchedule} onChange={(e) => setNewClassSchedule(e.target.value)} className="col-span-3" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="color" className="text-right">Renk Teması</Label>
+                        <Select value={newClassColor} onValueChange={setNewClassColor}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Bir renk seçin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="blue"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div>Mavi</div></SelectItem>
+                            <SelectItem value="green"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div>Yeşil</div></SelectItem>
+                            <SelectItem value="purple"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Mor</div></SelectItem>
+                            <SelectItem value="orange"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div>Turuncu</div></SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" onClick={handleCreateClass}>Oluştur</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
 
           {/* DASHBOARD TAB */}
