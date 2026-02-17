@@ -15,11 +15,15 @@ import {
     CardHeader,
     CardTitle,
     CardDescription,
+    CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Users, FileQuestion, CheckCircle, ShieldAlert, GraduationCap, School, TrendingUp, BarChart3, PieChart, Baby } from "lucide-react";
+import {
+    Loader2, Users, FileQuestion, CheckCircle, ShieldAlert, GraduationCap, School,
+    TrendingUp, BarChart3, PieChart, Baby, Search, Settings, Save, Server, Lock, Activity, Power
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, subDays, format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -31,8 +35,6 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    BarChart,
-    Bar,
     PieChart as RePieChart,
     Pie,
     Cell,
@@ -41,6 +43,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminBlogManager from "@/components/AdminBlogManager";
 import { BookOpenText } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserProfile {
     id: string;
@@ -78,10 +84,25 @@ export default function AdminPanel() {
     });
     const [weeklyData, setWeeklyData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
     const { toast } = useToast();
+
+    // System Settings State
+    const [systemSettings, setSystemSettings] = useState({
+        maintenanceMode: false,
+        allowSignups: true,
+        aiModel: "gpt-4o",
+        dailyQuestionLimit: 10,
+        teacherApprovalRequired: false
+    });
 
     useEffect(() => {
         fetchData();
+        // Load settings from local storage if available for persistence demo
+        const savedSettings = localStorage.getItem('admin_system_settings');
+        if (savedSettings) {
+            setSystemSettings(JSON.parse(savedSettings));
+        }
     }, []);
 
     const fetchData = async () => {
@@ -94,7 +115,7 @@ export default function AdminPanel() {
             const { count: solutionCount } = await supabase.from('solutions').select('*', { count: 'exact', head: true });
             const { count: pendingCount } = await supabase.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
 
-            // Rol dağılımı (Pie Chart için)
+            // Rol dağılımı
             const { count: studentCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
             const { count: teacherCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'teacher');
             const { count: adminCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin');
@@ -116,19 +137,18 @@ export default function AdminPanel() {
                 .from('profiles')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(10); // Sadece son 10 kullanıcıyı göster (performans için)
+                .limit(50); // Son 50 kullanıcıyı çekiyoruz
 
             if (userError) throw userError;
             setUsers(userData as UserProfile[]);
 
-            // 3. Haftalık Veri (Mock Data - Gerçek veritabanı sorgusu karmaşık olabilir)
-            // Supabase'de group by time için RPC gerekir. Şimdilik mock data kullanalım.
+            // 3. Haftalık Veri (Mock Data)
             const mockWeeklyData = Array.from({ length: 7 }).map((_, i) => {
                 const date = subDays(new Date(), 6 - i);
                 return {
                     name: format(date, 'dd MMM', { locale: tr }),
-                    soru: Math.floor(Math.random() * 20) + 5, // 5-25 arası rastgele
-                    cozum: Math.floor(Math.random() * 15) + 2, // 2-17 arası rastgele
+                    soru: Math.floor(Math.random() * 20) + 5,
+                    cozum: Math.floor(Math.random() * 15) + 2,
                 };
             });
             setWeeklyData(mockWeeklyData);
@@ -159,9 +179,8 @@ export default function AdminPanel() {
                 description: `Kullanıcı rolü ${newRole} olarak değiştirildi.`,
             });
 
-            // Listeyi güncelle
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-            fetchData(); // İstatistikleri de güncelle
+            fetchData();
 
         } catch (error: any) {
             toast({
@@ -171,6 +190,21 @@ export default function AdminPanel() {
             });
         }
     };
+
+    const handleSaveSettings = () => {
+        // Simulate saving settings (In a real app, this would go to a 'system_settings' table)
+        localStorage.setItem('admin_system_settings', JSON.stringify(systemSettings));
+
+        toast({
+            title: "Ayarlar Kaydedildi",
+            description: "Sistem yapılandırması başarıyla güncellendi.",
+        });
+    };
+
+    const filteredUsers = users.filter(user =>
+        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.role.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     if (loading) {
         return (
@@ -186,6 +220,7 @@ export default function AdminPanel() {
                 <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
                 <h1 className="text-2xl font-bold mb-2">Erişim Engellendi</h1>
                 <p className="text-muted-foreground">Bu sayfayı görüntülemek için yönetici yetkisine sahip olmalısınız.</p>
+                <Button variant="link" onClick={() => window.history.back()}>Geri Dön</Button>
             </div>
         );
     }
@@ -198,13 +233,13 @@ export default function AdminPanel() {
     ];
 
     return (
-        <div className="space-y-8 pb-10">
-            <div className="flex items-center justify-between">
+        <div className="space-y-8 pb-10 max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
                         Yönetici Paneli
                     </h1>
-                    <p className="text-muted-foreground">Sistemin genel durumu ve performans metrikleri.</p>
+                    <p className="text-muted-foreground">Sistemin genel durumu, kullanıcılar ve yapılandırma.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button onClick={fetchData} variant="outline" size="sm" className="gap-2">
@@ -214,17 +249,23 @@ export default function AdminPanel() {
             </div>
 
             <Tabs defaultValue="dashboard" className="space-y-6">
-                <TabsList className="bg-white border p-1 rounded-xl h-12">
+                <TabsList className="bg-white border p-1 rounded-xl h-12 w-full md:w-auto overflow-x-auto">
                     <TabsTrigger value="dashboard" className="rounded-lg gap-2">
                         <BarChart3 className="w-4 h-4" /> İstatistikler
+                    </TabsTrigger>
+                    <TabsTrigger value="users" className="rounded-lg gap-2">
+                        <Users className="w-4 h-4" /> Kullanıcılar
+                    </TabsTrigger>
+                    <TabsTrigger value="settings" className="rounded-lg gap-2">
+                        <Settings className="w-4 h-4" /> Sistem Ayarları
                     </TabsTrigger>
                     <TabsTrigger value="blogs" className="rounded-lg gap-2">
                         <BookOpenText className="w-4 h-4" /> Blog Yönetimi
                     </TabsTrigger>
                 </TabsList>
 
+                {/* DASHBOARD CONTENT */}
                 <TabsContent value="dashboard" className="space-y-8">
-                    {/* İstatistik Kartları */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 shadow-sm hover:shadow-md transition-shadow">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -236,7 +277,6 @@ export default function AdminPanel() {
                                 <p className="text-xs text-blue-600/80">Sisteme kayıtlı herkes</p>
                             </CardContent>
                         </Card>
-
                         <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100 shadow-sm hover:shadow-md transition-shadow">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium text-purple-900">Toplam Soru</CardTitle>
@@ -247,7 +287,6 @@ export default function AdminPanel() {
                                 <p className="text-xs text-purple-600/80">Sorulan tüm sorular</p>
                             </CardContent>
                         </Card>
-
                         <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 shadow-sm hover:shadow-md transition-shadow">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium text-green-900">Çözülen Soru</CardTitle>
@@ -258,7 +297,6 @@ export default function AdminPanel() {
                                 <p className="text-xs text-green-600/80">Başarıyla yanıtlananlar</p>
                             </CardContent>
                         </Card>
-
                         <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-100 shadow-sm hover:shadow-md transition-shadow">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium text-orange-900">Bekleyen Sorular</CardTitle>
@@ -271,7 +309,6 @@ export default function AdminPanel() {
                         </Card>
                     </div>
 
-                    {/* Grafikler */}
                     <div className="grid gap-4 md:grid-cols-7">
                         <Card className="col-span-4 shadow-sm">
                             <CardHeader>
@@ -296,10 +333,7 @@ export default function AdminPanel() {
                                         <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                                         <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                        />
+                                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                                         <Area type="monotone" dataKey="soru" stroke="#8884d8" fillOpacity={1} fill="url(#colorSoru)" name="Soru Sayısı" />
                                         <Area type="monotone" dataKey="cozum" stroke="#82ca9d" fillOpacity={1} fill="url(#colorCozum)" name="Çözüm Sayısı" />
                                         <Legend iconType="circle" />
@@ -340,14 +374,27 @@ export default function AdminPanel() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
 
-                    {/* Kullanıcı Listesi */}
+                {/* USERS CONTENT */}
+                <TabsContent value="users" className="space-y-6">
                     <Card className="shadow-sm">
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="w-5 h-5 text-primary" /> Son Kayıt Olan Kullanıcılar
-                            </CardTitle>
-                            <CardDescription>Siste en son katılan 20 kullanıcı.</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle>Kullanıcı Yönetimi</CardTitle>
+                                    <CardDescription>Sisteme kayıtlı kullanıcıları düzenleyin, rol atayın.</CardDescription>
+                                </div>
+                                <div className="relative w-72">
+                                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="İsim veya rol ara..."
+                                        className="pl-9"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="rounded-md border">
@@ -362,64 +409,66 @@ export default function AdminPanel() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {users.map((user) => (
-                                            <TableRow key={user.id} className="hover:bg-muted/5 transition-colors">
-                                                <TableCell>
-                                                    <Avatar className="h-9 w-9 border">
-                                                        <AvatarImage src={user.avatar_url || ""} />
-                                                        <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs">
-                                                            {user.full_name?.substring(0, 2).toUpperCase() || "??"}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                </TableCell>
-                                                <TableCell className="font-medium">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-semibold">{user.full_name || "İsimsiz"}</span>
-                                                        <span className="text-xs text-muted-foreground">{user.id.substring(0, 8)}...</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="font-normal text-muted-foreground">
-                                                        {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: tr })}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {user.role === 'admin' ? (
-                                                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Yönetici</Badge>
-                                                    ) : user.role === 'teacher' ? (
-                                                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Öğretmen</Badge>
-                                                    ) : user.role === 'parent' ? (
-                                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">Veli</Badge>
-                                                    ) : (
-                                                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">Öğrenci</Badge>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        {user.role !== 'admin' && (
-                                                            <Button size="sm" className="h-7 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200" variant="outline" onClick={() => updateUserRole(user.id, 'admin')}>
-                                                                <ShieldAlert className="w-3 h-3 mr-1" /> Admin
-                                                            </Button>
-                                                        )}
-                                                        {user.role !== 'teacher' && (
-                                                            <Button size="sm" className="h-7 px-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200" variant="outline" onClick={() => updateUserRole(user.id, 'teacher')}>
-                                                                <School className="w-3 h-3 mr-1" /> Öğr.
-                                                            </Button>
-                                                        )}
-                                                        {user.role !== 'parent' && (
-                                                            <Button size="sm" className="h-7 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" variant="outline" onClick={() => updateUserRole(user.id, 'parent')}>
-                                                                <Baby className="w-3 h-3 mr-1" /> Veli
-                                                            </Button>
-                                                        )}
-                                                        {user.role !== 'student' && (
-                                                            <Button size="sm" className="h-7 px-2 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200" variant="outline" onClick={() => updateUserRole(user.id, 'student')}>
-                                                                <GraduationCap className="w-3 h-3 mr-1" /> Öğr.
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                        {filteredUsers.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                                    Kullanıcı bulunamadı.
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        ) : (
+                                            filteredUsers.map((user) => (
+                                                <TableRow key={user.id} className="hover:bg-muted/5 transition-colors">
+                                                    <TableCell>
+                                                        <Avatar className="h-9 w-9 border">
+                                                            <AvatarImage src={user.avatar_url || ""} />
+                                                            <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs">
+                                                                {user.full_name?.substring(0, 2).toUpperCase() || "??"}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                    </TableCell>
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-semibold">{user.full_name || "İsimsiz"}</span>
+                                                            <span className="text-xs text-muted-foreground">{user.id}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className="font-normal text-muted-foreground">
+                                                            {formatDistanceToNow(new Date(user.created_at), { addSuffix: true, locale: tr })}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {user.role === 'admin' ? (
+                                                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Yönetici</Badge>
+                                                        ) : user.role === 'teacher' ? (
+                                                            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">Öğretmen</Badge>
+                                                        ) : user.role === 'parent' ? (
+                                                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">Veli</Badge>
+                                                        ) : (
+                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-700">Öğrenci</Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Select
+                                                                defaultValue={user.role}
+                                                                onValueChange={(val) => updateUserRole(user.id, val as any)}
+                                                            >
+                                                                <SelectTrigger className="w-[110px] h-8 text-xs">
+                                                                    <SelectValue placeholder="Rol Seç" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="student">Öğrenci</SelectItem>
+                                                                    <SelectItem value="teacher">Öğretmen</SelectItem>
+                                                                    <SelectItem value="parent">Veli</SelectItem>
+                                                                    <SelectItem value="admin">Admin</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -427,6 +476,107 @@ export default function AdminPanel() {
                     </Card>
                 </TabsContent>
 
+                {/* SETTINGS CONTENT */}
+                <TabsContent value="settings" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Server className="w-5 h-5 text-primary" /> Sistem Yapılandırması
+                            </CardTitle>
+                            <CardDescription>
+                                OdevGPT genel sistem ayarlarını buradan yönetebilirsiniz.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-8">
+
+                            {/* Bakım Modu */}
+                            <div className="flex items-center justify-between border-b pb-4">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-base font-medium">Bakım Modu</Label>
+                                        {systemSettings.maintenanceMode && <Badge variant="destructive">AKTİF</Badge>}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Siteyi sadece yöneticilerin erişebileceği şekilde kısıtlar.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={systemSettings.maintenanceMode}
+                                    onCheckedChange={(c) => setSystemSettings(p => ({ ...p, maintenanceMode: c }))}
+                                />
+                            </div>
+
+                            {/* Yeni Üye Alımı */}
+                            <div className="flex items-center justify-between border-b pb-4">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-medium">Yeni Üye Kaydı</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Dışarıdan yeni kullanıcı kayıtlarını aç/kapat.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={systemSettings.allowSignups}
+                                    onCheckedChange={(c) => setSystemSettings(p => ({ ...p, allowSignups: c }))}
+                                />
+                            </div>
+
+                            {/* Öğretmen Onayı */}
+                            <div className="flex items-center justify-between border-b pb-4">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-medium">AI Cevaplarında Öğretmen Onayı</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        AI tarafından üretilen çözümler yayınlanmadan önce öğretmen onayına düşsün.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={systemSettings.teacherApprovalRequired}
+                                    onCheckedChange={(c) => setSystemSettings(p => ({ ...p, teacherApprovalRequired: c }))}
+                                />
+                            </div>
+
+                            {/* AI Model Ayarları */}
+                            <div className="grid gap-4 pt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Varsayılan Yapay Zeka Modeli</Label>
+                                        <Select
+                                            value={systemSettings.aiModel}
+                                            onValueChange={(val) => setSystemSettings(p => ({ ...p, aiModel: val }))}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="gpt-4o">GPT-4o (Önerilen)</SelectItem>
+                                                <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Hızlı)</SelectItem>
+                                                <SelectItem value="claude-3-sonnet">Claude 3.5 Sonnet</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-[10px] text-muted-foreground">Çözümlerin kalitesini ve hızını etkiler.</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Ücretsiz Kullanıcı Günlük Soru Limiti</Label>
+                                        <Input
+                                            type="number"
+                                            value={systemSettings.dailyQuestionLimit}
+                                            onChange={(e) => setSystemSettings(p => ({ ...p, dailyQuestionLimit: parseInt(e.target.value) }))}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                        </CardContent>
+                        <CardFooter className="flex justify-end gap-2 bg-gray-50 border-t p-4 rounded-b-xl">
+                            <Button variant="outline">İptal</Button>
+                            <Button onClick={handleSaveSettings} className="gap-2">
+                                <Save className="w-4 h-4" /> Değişiklikleri Kaydet
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </TabsContent>
+
+                {/* BLOG CONTENT */}
                 <TabsContent value="blogs">
                     <AdminBlogManager />
                 </TabsContent>
