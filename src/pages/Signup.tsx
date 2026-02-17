@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
 import SEO from "@/components/SEO";
 
 export default function Signup() {
+    const { tenant } = useTenant();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
@@ -37,7 +39,7 @@ export default function Signup() {
         }
 
         try {
-            await signUp(email, password, fullName, role);
+            await signUp(email, password, fullName, role, tenant?.id);
             toast({
                 title: "Hoş geldiniz! 🎉",
                 description: "Hesabınız başarıyla oluşturuldu.",
@@ -63,7 +65,7 @@ export default function Signup() {
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <SEO title="Kayıt Ol" />
+            <SEO title={tenant ? `${tenant.name} Kayıt` : "Kayıt Ol"} />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -71,12 +73,22 @@ export default function Signup() {
             >
                 {/* Logo */}
                 <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-                    <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
-                        <Sparkles className="w-6 h-6 text-primary-foreground" />
-                    </div>
+                    {tenant?.logo_url ? (
+                        <img src={tenant.logo_url} alt={tenant.name} className="h-10 w-auto object-contain" />
+                    ) : (
+                        <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
+                            <Sparkles className="w-6 h-6 text-primary-foreground" />
+                        </div>
+                    )}
                     <span className="text-2xl font-bold">
-                        <span className="gradient-text">Edusonex</span>{" "}
-                        <span className="text-accent">ÖdevGPT</span>
+                        {tenant ? (
+                            <span className="gradient-text uppercase">{tenant.name}</span>
+                        ) : (
+                            <>
+                                <span className="gradient-text">Edusonex</span>{" "}
+                                <span className="text-accent">ÖdevGPT</span>
+                            </>
+                        )}
                     </span>
                 </Link>
 
@@ -85,7 +97,7 @@ export default function Signup() {
                     <div className="text-center mb-6">
                         <h1 className="text-2xl font-bold mb-2">Kayıt Ol</h1>
                         <p className="text-muted-foreground text-sm">
-                            Ücretsiz hesap oluştur ve öğrenmeye başla
+                            {tenant ? `${tenant.name} ailesine katılın` : "Ücretsiz hesap oluştur ve öğrenmeye başla"}
                         </p>
                     </div>
 

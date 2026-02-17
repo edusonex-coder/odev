@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -27,34 +29,42 @@ interface LeaderboardUser {
     xp: number;
     level: number;
     avatar_url: string | null;
+    tenant_id: string | null;
 }
 
 export default function Leaderboard() {
     const navigate = useNavigate();
+    const { profile } = useAuth();
+    const { tenant } = useTenant();
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<LeaderboardUser[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [filter, setFilter] = useState<"global" | "weekly">("global");
+    const [filter, setFilter] = useState<"global" | "school">("global");
+
+    useEffect(() => {
+        // If user belongs to a tenant, default to school filter
+        if (profile?.tenant_id) {
+            setFilter("school");
+        }
+    }, [profile?.tenant_id]);
 
     useEffect(() => {
         fetchLeaderboard();
-    }, [filter]);
+    }, [filter, profile?.tenant_id]);
 
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
             let query = supabase
                 .from('profiles')
-                .select('id, full_name, xp, level, avatar_url')
+                .select('id, full_name, xp, level, avatar_url, tenant_id')
                 .eq('role', 'student');
 
-            if (filter === 'global') {
-                query = query.order('xp', { ascending: false });
-            } else {
-                // Haftalık mantığı için last_activity_at veya streak kullanılabilir
-                // Şimdilik gelişmiş bir sıralama için XP + Level ağırlıklı yapalım
-                query = query.order('xp', { ascending: false });
+            if (filter === 'school' && profile?.tenant_id) {
+                query = query.eq('tenant_id', profile.tenant_id);
             }
+
+            query = query.order('xp', { ascending: false });
 
             const { data, error } = await query.limit(50);
 
@@ -112,12 +122,12 @@ export default function Leaderboard() {
                             Global
                         </Button>
                         <Button
-                            variant={filter === 'weekly' ? 'secondary' : 'ghost'}
+                            variant={filter === 'school' ? 'secondary' : 'ghost'}
                             size="sm"
                             className="rounded-lg text-[10px] h-8 grow md:grow-0"
-                            onClick={() => setFilter('weekly')}
+                            onClick={() => setFilter('school')}
                         >
-                            Haftalık
+                            {tenant ? tenant.name : "Okul İçi"}
                         </Button>
                     </div>
                     <div className="relative flex-1 md:w-64">

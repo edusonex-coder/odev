@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
 import SEO from "@/components/SEO";
 
 export default function Login() {
+    const { tenant } = useTenant();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function Login() {
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <SEO title="Giriş Yap" />
+            <SEO title={tenant ? `${tenant.name} Giriş` : "Giriş Yap"} />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -53,12 +55,22 @@ export default function Login() {
             >
                 {/* Logo */}
                 <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-                    <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
-                        <Sparkles className="w-6 h-6 text-primary-foreground" />
-                    </div>
+                    {tenant?.logo_url ? (
+                        <img src={tenant.logo_url} alt={tenant.name} className="h-10 w-auto object-contain" />
+                    ) : (
+                        <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
+                            <Sparkles className="w-6 h-6 text-primary-foreground" />
+                        </div>
+                    )}
                     <span className="text-2xl font-bold">
-                        <span className="gradient-text">Edusonex</span>{" "}
-                        <span className="text-accent">ÖdevGPT</span>
+                        {tenant ? (
+                            <span className="gradient-text uppercase">{tenant.name}</span>
+                        ) : (
+                            <>
+                                <span className="gradient-text">Edusonex</span>{" "}
+                                <span className="text-accent">ÖdevGPT</span>
+                            </>
+                        )}
                     </span>
                 </Link>
 
@@ -67,7 +79,7 @@ export default function Login() {
                     <div className="text-center mb-6">
                         <h1 className="text-2xl font-bold mb-2">Giriş Yap</h1>
                         <p className="text-muted-foreground text-sm">
-                            Hesabınıza giriş yapın ve öğrenmeye devam edin
+                            {tenant ? `${tenant.name} paneline giriş yapın` : "Hesabınıza giriş yapın ve öğrenmeye devam edin"}
                         </p>
                     </div>
 

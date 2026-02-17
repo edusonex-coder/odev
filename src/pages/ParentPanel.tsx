@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,6 +87,7 @@ interface Assignment {
 
 export default function ParentPanel() {
     const { user } = useAuth();
+    const { tenant } = useTenant();
     const { toast } = useToast();
 
     const [students, setStudents] = useState<StudentSummary[]>([]);
@@ -390,12 +392,16 @@ export default function ParentPanel() {
                 <div className="space-y-1">
                     <h1 className="text-4xl font-black flex items-center gap-3 tracking-tight">
                         <div className="p-2 bg-primary/10 rounded-2xl">
-                            <Users className="w-8 h-8 text-primary" />
+                            {tenant?.logo_url ? (
+                                <img src={tenant.logo_url} alt={tenant.name} className="w-8 h-8 object-contain" />
+                            ) : (
+                                <Users className="w-8 h-8 text-primary" />
+                            )}
                         </div>
-                        Veli Paneli
+                        {tenant ? `${tenant.name} Veli Paneli` : "Veli Paneli"}
                     </h1>
                     <p className="text-muted-foreground text-lg">
-                        Çocuklarınızın akademik serüvenini buradan yönetin.
+                        {tenant ? `${tenant.name} öğrencilerinin` : "Çocuklarınızın"} akademik serüvenini buradan yönetin.
                     </p>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto bg-card p-2 rounded-2xl shadow-sm border">
@@ -600,8 +606,8 @@ export default function ParentPanel() {
                                                     <AreaChart data={chartData}>
                                                         <defs>
                                                             <linearGradient id="colorXp" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                                                <stop offset="5%" stopColor={tenant?.primary_color || "#8b5cf6"} stopOpacity={0.3} />
+                                                                <stop offset="95%" stopColor={tenant?.primary_color || "#8b5cf6"} stopOpacity={0} />
                                                             </linearGradient>
                                                         </defs>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -621,7 +627,7 @@ export default function ParentPanel() {
                                                         <Area
                                                             type="monotone"
                                                             dataKey="xp"
-                                                            stroke="#8b5cf6"
+                                                            stroke={tenant?.primary_color || "#8b5cf6"}
                                                             strokeWidth={4}
                                                             fillOpacity={1}
                                                             fill="url(#colorXp)"

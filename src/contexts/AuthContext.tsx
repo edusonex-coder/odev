@@ -22,6 +22,7 @@ interface Profile {
         student_activity?: boolean;
         assignment_graded?: boolean;
     };
+    tenant_id: string | null;
 }
 
 interface AuthContextType {
@@ -30,7 +31,7 @@ interface AuthContextType {
     session: Session | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string, fullName: string, role?: string) => Promise<void>;
+    signUp: (email: string, password: string, fullName: string, role?: string, tenantId?: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         navigate('/dashboard');
     };
 
-    const signUp = async (email: string, password: string, fullName: string, role: string = 'student') => {
+    const signUp = async (email: string, password: string, fullName: string, role: string = 'student', tenantId?: string) => {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -131,17 +132,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 data: {
                     full_name: fullName,
                     role: role,
+                    tenant_id: tenantId,
                 },
             },
         });
         if (error) throw error;
 
         // Profile otomatik oluşturulacak (trigger sayesinde)
-        // Ama role'ü güncellememiz gerekebilir
-        if (data.user && role !== 'student') {
+        // Ama role'ü güncellememiz gerekebilir (Eğer trigger'da bir aksilik olursa veya anlık güncelleme gerekirse)
+        if (data.user && (role !== 'student' || tenantId)) {
             await supabase
                 .from('profiles')
-                .update({ role })
+                .update({ role, tenant_id: tenantId })
                 .eq('id', data.user.id);
         }
 

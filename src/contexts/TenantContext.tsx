@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface TenantConfig {
     id: string;
@@ -42,67 +43,70 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const searchParams = new URLSearchParams(window.location.search);
             const debugTenant = searchParams.get('tenant');
 
-            // 1. Determine the slug
-            let slug = '';
-            if (debugTenant) {
-                slug = debugTenant;
-            } else if (hostname.includes('isikdamper.online')) {
-                slug = 'isikdamper';
-            } else if (hostname.includes('.edusonex.com.tr')) {
-                slug = hostname.split('.')[0];
-                if (slug === 'odev') slug = ''; // Default odev.edusonex.com.tr
-            }
+            try {
+                let data: any = null;
+                let error: any = null;
 
-            if (!slug) {
+                // 1. Determine the slug or domain to query
+                if (debugTenant) {
+                    // Manual debug override via ?tenant=slug
+                    const response = await supabase
+                        .from('tenants')
+                        .select('*')
+                        .eq('slug', debugTenant)
+                        .single();
+                    data = response.data;
+                    error = response.error;
+                } else {
+                    // Try exact domain match (e.g., isikdamper.online)
+                    const response = await supabase
+                        .from('tenants')
+                        .select('*')
+                        .eq('domain', hostname)
+                        .single();
+                    data = response.data;
+                    error = response.error;
+
+                    if (error || !data) {
+                        // Fallback: Check subdomain for .edusonex.com.tr
+                        const subdomain = hostname.split('.')[0];
+                        if (subdomain && subdomain !== 'odev' && subdomain !== 'www') {
+                            const subResponse = await supabase
+                                .from('tenants')
+                                .select('*')
+                                .eq('slug', subdomain)
+                                .single();
+                            data = subResponse.data;
+                            error = subResponse.error;
+                        }
+                    }
+                }
+
+                if (data && !error) {
+                    const config: TenantConfig = {
+                        ...data,
+                        // Map database column names to existing interface names
+                        custom_cto_name: data.cto_name,
+                        custom_cto_note: data.cto_note,
+                        custom_video_url: data.video_url,
+                        custom_podcast_url: data.podcast_url,
+                    };
+                    applyTenantBranding(config);
+                    setTenant(config);
+                } else {
+                    setTenant(null);
+                }
+            } catch (err) {
+                console.error("Tenant resolution error:", err);
                 setTenant(null);
+            } finally {
                 setIsLoading(false);
-                return;
             }
-
-            // 2. Mock fetching from Supabase
-            if (slug === 'odevkolej') {
-                const config: TenantConfig = {
-                    id: '1',
-                    name: 'Odev Koleji',
-                    slug: 'odevkolej',
-                    logo_url: 'https://img.logoipsum.com/296.svg', // Example blue logo
-                    primary_color: '210 100% 50%', // Mavi tema
-                    secondary_color: '210 20% 96%',
-                    hide_universe_section: true, // Edusonex Evreni gizle
-                    hide_podcast_section: true,  // Edusonex podcast'ini gizle
-                    custom_cto_name: 'Okul Koordinatörü',
-                    custom_cto_note: 'Öğrencilerimizin başarısı için en modern yapay zeka araçlarını müfredatımıza entegre ettik. Bu platform sadece bir ödev aracı değil, dijital bir eğitim yol arkadaşıdır.',
-                };
-                applyTenantBranding(config);
-                setTenant(config);
-            } else if (slug === 'isikdamper') {
-                const config: TenantConfig = {
-                    id: '2',
-                    name: 'IŞIK Akademi',
-                    slug: 'isikdamper',
-                    logo_url: 'https://img.logoipsum.com/280.svg',
-                    primary_color: '24 95% 53%', // Canlı Turuncu
-                    secondary_color: '240 10% 4%', // Çok Koyu Gri (Neredeyse Siyah)
-                    dark_mode: true,
-                    hero_style: 'industrial',
-                    hide_universe_section: true,
-                    hide_podcast_section: true,
-                    hide_video_section: false, // Artık videomuzu göstereceğiz
-                    video_position: 'right', // Videoyu sağa alalım
-                    custom_video_url: 'https://youtu.be/y8mSVCdbAWE',
-                    custom_cto_name: 'Akademi Müdürü',
-                    custom_cto_note: 'IŞIK Akademi olarak, teknik becerilerinizi yapay zeka destekli eğitim araçlarıyla en üst seviyeye taşıyoruz.',
-                };
-                applyTenantBranding(config);
-                setTenant(config);
-            } else {
-                setTenant(null);
-            }
-            setIsLoading(false);
         };
 
         resolveTenant();
     }, []);
+
 
     const applyTenantBranding = (config: TenantConfig) => {
         if (config.primary_color) {
@@ -119,6 +123,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         if (config.name) {
             document.title = `${config.name} | OdevGPT`;
+        }
+
+        if (config.favicon_url) {
+            const link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+            if (link) {
+                link.href = config.favicon_url;
+            } else {
+                const newLink = document.createElement('link');
+                newLink.rel = 'icon';
+                newLink.href = config.favicon_url;
+                document.head.appendChild(newLink);
+            }
         }
     };
 

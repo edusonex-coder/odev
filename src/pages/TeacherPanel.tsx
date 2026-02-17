@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -132,7 +133,8 @@ export default function TeacherPanel() {
   const [solutionText, setSolutionText] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -312,14 +314,24 @@ export default function TeacherPanel() {
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b">
         <div className="container flex items-center justify-between h-16 px-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
+            {tenant?.logo_url ? (
+              <img src={tenant.logo_url} alt={tenant.name} className="h-7 w-auto object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+            )}
             <span className="text-lg font-bold">
-              <span className="text-primary">Eğitim</span>
-              <span className="text-gray-900">Paneli</span>
+              {tenant ? (
+                <span className="gradient-text uppercase">{tenant.name}</span>
+              ) : (
+                <>
+                  <span className="text-primary">Eğitim</span>
+                  <span className="text-gray-900">Paneli</span>
+                </>
+              )}
             </span>
-            <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 hover:bg-purple-200">Öğretmen</Badge>
+            <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 hover:bg-purple-200">Eğitmen</Badge>
           </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="text-gray-500">
@@ -327,10 +339,10 @@ export default function TeacherPanel() {
             </Button>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border shadow-sm">
               <Avatar className="w-6 h-6">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
-                <AvatarFallback>T</AvatarFallback>
+                <AvatarImage src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
+                <AvatarFallback>{profile?.full_name?.charAt(0) || 'T'}</AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium">Edusonex Öğretmen</span>
+              <span className="text-sm font-medium">{profile?.full_name || 'Eğitmen'}</span>
             </div>
           </div>
         </div>

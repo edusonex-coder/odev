@@ -132,9 +132,9 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-5xl md:text-8xl font-black leading-[1.1] mb-8"
+                className="text-5xl md:text-8xl font-black leading-[1.1] mb-8 uppercase"
               >
-                IŞIK AKADEMİ İLE <br />
+                {tenant?.name} İLE <br />
                 <span className="text-orange-500 italic">USTALIĞA</span> ADIM AT
               </motion.h1>
 

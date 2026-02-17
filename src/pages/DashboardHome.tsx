@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/lib/supabase";
@@ -101,6 +102,7 @@ interface UserClass {
 
 export default function DashboardHome() {
   const { profile, loading, user } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState("");
@@ -417,18 +419,25 @@ export default function DashboardHome() {
       <SEO title="Öğrenci Paneli" />
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xl">
+      <div
+        className="relative overflow-hidden rounded-3xl bg-indigo-600 text-white shadow-xl"
+        style={{
+          background: tenant?.primary_color
+            ? `linear-gradient(135deg, ${tenant.primary_color}, ${tenant.primary_color}dd)`
+            : undefined
+        }}
+      >
         <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-4 max-w-lg">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-violet-100 bg-white/10 w-fit px-3 py-1 rounded-full text-sm backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span>Hoş geldin, Süper Kahraman!</span>
+              <span>{tenant ? `${tenant.name} Kaşifi` : "Hoş geldin, Süper Kahraman!"}</span>
             </motion.div>
             <h1 className="text-3xl md:text-4xl font-bold leading-tight">
               Merhaba, {profile?.full_name?.split(' ')[0] || 'Öğrenci'}! 👋 <br />
-              Bugün öğrenmeye hazır mısın?
+              {tenant ? `${tenant.name}'de` : "Bugün"} öğrenmeye hazır mısın?
             </h1>
-            <p className="text-violet-100 text-lg">
+            <p className="text-violet-100 text-lg opacity-90">
               Seni bekleyen <span className="font-bold text-white">3 yeni görev</span> ve kazanılacak <span className="font-bold text-yellow-300">500 XP</span> var.
             </p>
             <div className="flex gap-3 pt-2">

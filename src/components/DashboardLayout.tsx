@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { Home, Camera, Clock, User, Sparkles, LogOut, Settings, Crown, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import NotificationBell from "./NotificationBell";
 export default function DashboardLayout() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
+  const { tenant } = useTenant();
 
   // Role based navigation items
   const getNavItems = () => {
@@ -56,12 +58,22 @@ export default function DashboardLayout() {
       <header className="sticky top-0 z-40 glass border-b">
         <div className="container flex items-center justify-between h-14">
           <Link to={profile?.role === 'teacher' ? '/teacher' : profile?.role === 'parent' ? '/dashboard/parent' : '/dashboard'} className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
-            </div>
+            {tenant?.logo_url ? (
+              <img src={tenant.logo_url} alt={tenant.name} className="h-7 w-auto object-contain" />
+            ) : (
+              <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary-foreground" />
+              </div>
+            )}
             <span className="text-lg font-bold">
-              <span className="gradient-text">ODEV</span>
-              <span className="text-accent">GPT</span>
+              {tenant ? (
+                <span className="gradient-text uppercase">{tenant.name}</span>
+              ) : (
+                <>
+                  <span className="gradient-text">ODEV</span>
+                  <span className="text-accent">GPT</span>
+                </>
+              )}
             </span>
           </Link>
           <div className="flex items-center gap-2">

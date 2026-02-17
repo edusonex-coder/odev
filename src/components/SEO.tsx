@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface SEOProps {
     title: string;
@@ -6,8 +7,11 @@ interface SEOProps {
 }
 
 const SEO = ({ title, description }: SEOProps) => {
+    const { tenant } = useTenant();
+
     useEffect(() => {
-        document.title = `${title} | OdevGPT - Yapay Zeka Destekli Ders Asistanı`;
+        const baseTitle = tenant ? tenant.name : "OdevGPT";
+        document.title = `${title} | ${baseTitle}`;
 
         const metaDescription = document.querySelector('meta[name="description"]');
         if (description) {
@@ -20,7 +24,7 @@ const SEO = ({ title, description }: SEOProps) => {
                 document.head.appendChild(meta);
             }
         }
-    }, [title, description]);
+    }, [title, description, tenant]);
 
     return null; // This component doesn't render anything
 };
