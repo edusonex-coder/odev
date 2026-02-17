@@ -28,88 +28,92 @@ import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
 import ParentPanel from "./pages/ParentPanel";
 
+import { TenantProvider } from "./contexts/TenantContext";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/blog" element={<BlogList />} />
-            <Route path="/blog/:slug" element={<BlogPost />} />
+      <TenantProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/blog" element={<BlogList />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<DashboardHome />} />
-              <Route path="ask" element={<AskQuestion />} />
-              <Route path="chat" element={<ChatScreen />} />
-              <Route path="history" element={<History />} />
-              <Route path="question/:id" element={<QuestionDetail />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="settings" element={<Settings />} /> {/* Settings Route */}
-              <Route path="premium" element={<Premium />} />
-              <Route path="upgrade" element={<Premium />} />
               <Route
-                path="admin"
+                path="/dashboard"
                 element={
-                  <ProtectedRoute requireRole="admin">
-                    <AdminPanel />
+                  <ProtectedRoute>
+                    <DashboardLayout />
                   </ProtectedRoute>
                 }
-              /> {/* Admin Panel Rotası */}
-              <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
-              <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
-              <Route path="leaderboard" element={<Leaderboard />} /> {/* Global Leaderboard */}
+              >
+                <Route index element={<DashboardHome />} />
+                <Route path="ask" element={<AskQuestion />} />
+                <Route path="chat" element={<ChatScreen />} />
+                <Route path="history" element={<History />} />
+                <Route path="question/:id" element={<QuestionDetail />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="settings" element={<Settings />} /> {/* Settings Route */}
+                <Route path="premium" element={<Premium />} />
+                <Route path="upgrade" element={<Premium />} />
+                <Route
+                  path="admin"
+                  element={
+                    <ProtectedRoute requireRole="admin">
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  }
+                /> {/* Admin Panel Rotası */}
+                <Route path="class/:id" element={<ClassDetail />} /> {/* Student Class Detail */}
+                <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Assignment Detail */}
+                <Route path="leaderboard" element={<Leaderboard />} /> {/* Global Leaderboard */}
+                <Route
+                  path="parent"
+                  element={
+                    <ProtectedRoute requireRole="parent">
+                      <ParentPanel />
+                    </ProtectedRoute>
+                  }
+                /> {/* Parent Panel */}
+              </Route>
+
               <Route
-                path="parent"
+                path="/teacher"
+                element={
+                  <ProtectedRoute requireRole="teacher">
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<TeacherPanel />} />
+                <Route path="class/:id" element={<ClassDetail />} /> {/* Teacher Class Detail */}
+                <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Teacher Assignment Detail */}
+              </Route>
+
+              <Route
+                path="/parent"
                 element={
                   <ProtectedRoute requireRole="parent">
-                    <ParentPanel />
+                    <DashboardLayout />
                   </ProtectedRoute>
                 }
-              /> {/* Parent Panel */}
-            </Route>
+              >
+                <Route index element={<ParentPanel />} />
+              </Route>
 
-            <Route
-              path="/teacher"
-              element={
-                <ProtectedRoute requireRole="teacher">
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<TeacherPanel />} />
-              <Route path="class/:id" element={<ClassDetail />} /> {/* Teacher Class Detail */}
-              <Route path="assignment/:id" element={<AssignmentDetail />} /> {/* Teacher Assignment Detail */}
-            </Route>
-
-            <Route
-              path="/parent"
-              element={
-                <ProtectedRoute requireRole="parent">
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<ParentPanel />} />
-            </Route>
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TenantProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

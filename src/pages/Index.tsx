@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen, Globe, Youtube, Music, FileDown, ExternalLink, CheckCircle } from "lucide-react";
+import { Camera, ArrowRight, Sparkles, Brain, UserCheck, Star, Shield, BookOpen, Globe, Youtube, Music, FileDown, ExternalLink, CheckCircle, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/hero-illustration.png";
@@ -57,23 +57,37 @@ const testimonials = [
   },
 ];
 
+import { useTenant } from "@/contexts/TenantContext";
+
 export default function LandingPage() {
+  const { tenant } = useTenant();
+
   return (
     <div className="min-h-screen bg-background">
       <SEO
-        title="Yapay Zeka Destekli Ödev Asistanı"
-        description="Ödevinin fotoğrafını çek, yapay zeka adım adım çözsün. MEB müfredatına uygun, sokatik yöntemle öğrenmeyi kolaylaştıran ders asistanı."
+        title={tenant ? `${tenant.name} | Yapay Zeka Destekli Ödev Asistanı` : "Yapay Zeka Destekli Ödev Asistanı"}
+        description={`${tenant ? tenant.name : 'OdevGPT'}, yapay zeka destekli akıllı eğitim asistanı ile sorularını çöz, anlamadığın yerde gerçek öğretmenlerden destek al.`}
       />
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass border-b">
         <div className="container flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
+            {tenant?.logo_url ? (
+              <img src={tenant.logo_url} alt={tenant.name} className="h-8 w-auto object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary-foreground" />
+              </div>
+            )}
             <span className="text-xl font-bold">
-              <span className="gradient-text">ODEV</span>
-              <span className="text-accent">GPT</span>
+              {tenant ? (
+                <span className="gradient-text uppercase tracking-tight">{tenant.name}</span>
+              ) : (
+                <>
+                  <span className="gradient-text">ODEV</span>
+                  <span className="text-accent">GPT</span>
+                </>
+              )}
             </span>
           </Link>
 
@@ -98,58 +112,115 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden relative">
-        <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-br from-primary/5 via-accent/5 to-transparent -z-10" />
-        <div className="container">
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              className="text-center md:text-left"
-            >
-              <motion.div custom={0} variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-6 animate-fade-in">
-                <Shield className="w-4 h-4" />
-                MEB Müfredatına %100 Uyumlu
+      {tenant?.hero_style === 'industrial' ? (
+        <section className="pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden relative bg-black text-white">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(255,100,0,0.1),transparent_70%)]" />
+
+          <div className="container relative z-10">
+            <div className="max-w-4xl mx-auto text-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-orange-600/20 border border-orange-600/30 text-orange-500 text-sm font-bold uppercase tracking-widest mb-8"
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                Teknik Uzmanlık & Yapay Zeka
               </motion.div>
-              <motion.h1 custom={1} variants={fadeInUp} className="text-4xl md:text-5xl lg:text-7xl font-black leading-tight mb-6 text-balance">
-                Ödevin mi var?{" "}
-                <span className="gradient-text bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-accent animate-gradient-text">Fotoğrafını çek,</span>{" "}
-                anında adım adım öğren.
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-5xl md:text-8xl font-black leading-[1.1] mb-8"
+              >
+                IŞIK AKADEMİ İLE <br />
+                <span className="text-orange-500 italic">USTALIĞA</span> ADIM AT
               </motion.h1>
-              <motion.p custom={2} variants={fadeInUp} className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto md:mx-0">
-                AI destekli akıllı eğitim asistanı ile sorularını çöz, anlamadığın yerde gerçek öğretmenlerden destek al.
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xl md:text-2xl text-white/60 mb-12 max-w-2xl mx-auto leading-relaxed"
+              >
+                Geleceğin endüstri liderlerini yetiştiriyoruz. Yapay zeka destekli teknik eğitim platformumuzla becerilerinizi dijital çağa taşıyın.
               </motion.p>
-              <motion.div custom={3} variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-                <Link to="/dashboard/ask">
-                  <Button size="lg" className="gradient-accent text-accent-foreground shadow-accent-glow hover:shadow-[0_0_20px_rgba(var(--accent),0.6)] transition-all duration-300 transform hover:-translate-y-1 text-lg px-8 py-6 rounded-2xl w-full sm:w-auto">
-                    <Camera className="w-5 h-5 mr-2" />
-                    Soru Sor / Fotoğraf Çek
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-col sm:flex-row gap-6 justify-center"
+              >
+                <Link to="/signup">
+                  <Button size="lg" className="bg-orange-600 hover:bg-orange-700 text-white font-black text-xl px-12 py-8 rounded-none border-r-4 border-b-4 border-orange-900 shadow-2xl transition-all hover:translate-x-1 hover:translate-y-1 active:translate-x-2 active:translate-y-2">
+                    HEMEN BAŞLA
                   </Button>
                 </Link>
-                <Link to="/signup">
-                  <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-2xl w-full sm:w-auto border-2 hover:bg-secondary/50 transition-all">
-                    Keşfet
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                <Link to="/#how-it-works">
+                  <Button size="lg" variant="outline" className="border-white/20 hover:bg-white/5 text-white font-bold text-xl px-12 py-8 rounded-none">
+                    EĞİTİMLER
                   </Button>
                 </Link>
               </motion.div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, x: 40 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              transition={{ duration: 0.7, delay: 0.3 }}
-              className="relative hidden md:block"
-            >
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 via-accent/20 to-transparent blur-3xl rounded-full animate-blob" />
-              <img
-                src={heroImage}
-                alt="ODEVGPT - Akıllı Eğitim Asistanı"
-                className="relative w-full max-w-lg mx-auto animate-float drop-shadow-2xl"
-              />
-            </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-br from-primary/5 via-accent/5 to-transparent -z-10" />
+          <div className="container">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                className="text-center md:text-left"
+              >
+                <motion.div custom={0} variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-6 animate-fade-in">
+                  <Shield className="w-4 h-4" />
+                  MEB Müfredatına %100 Uyumlu
+                </motion.div>
+                <motion.h1 custom={1} variants={fadeInUp} className="text-4xl md:text-5xl lg:text-7xl font-black leading-tight mb-6 text-balance">
+                  Ödevin mi var?{" "}
+                  <span className="gradient-text bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-accent animate-gradient-text">Fotoğrafını çek,</span>{" "}
+                  anında adım adım öğren.
+                </motion.h1>
+                <motion.p custom={2} variants={fadeInUp} className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto md:mx-0">
+                  AI destekli akıllı eğitim asistanı ile sorularını çöz, anlamadığın yerde gerçek öğretmenlerden destek al.
+                </motion.p>
+                <motion.div custom={3} variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                  <Link to="/dashboard/ask">
+                    <Button size="lg" className="gradient-accent text-accent-foreground shadow-accent-glow hover:shadow-[0_0_20px_rgba(var(--accent),0.6)] transition-all duration-300 transform hover:-translate-y-1 text-lg px-8 py-6 rounded-2xl w-full sm:w-auto">
+                      <Camera className="w-5 h-5 mr-2" />
+                      Soru Sor / Fotoğraf Çek
+                    </Button>
+                  </Link>
+                  <Link to="/signup">
+                    <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-2xl w-full sm:w-auto border-2 hover:bg-secondary/50 transition-all">
+                      Keşfet
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                </motion.div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, x: 40 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                transition={{ duration: 0.7, delay: 0.3 }}
+                className="relative hidden md:block"
+              >
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 via-accent/20 to-transparent blur-3xl rounded-full animate-blob" />
+                <img
+                  src={heroImage}
+                  alt="ODEVGPT - Akıllı Eğitim Asistanı"
+                  className="relative w-full max-w-lg mx-auto animate-float drop-shadow-2xl"
+                />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Interactive Demo */}
       <LandingDemo />
@@ -385,63 +456,67 @@ export default function LandingPage() {
           </motion.div>
 
           <div className="grid lg:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
-            {/* YouTube & Spotify Column */}
-            <div className="space-y-8">
+            {/* Column A (Default: Video/Podcast, If right: Info/PDF) */}
+            <div className={tenant?.video_position === 'right' ? "lg:order-2 space-y-8" : "lg:order-1 space-y-8"}>
               {/* YouTube Video Embed */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                className="bg-card rounded-[2rem] border overflow-hidden shadow-xl"
-              >
-                <div className="p-6 border-b bg-primary/5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Youtube className="w-5 h-5 text-red-500" />
-                    <h3 className="font-bold">Tanıtım Videomuz</h3>
+              {!tenant?.hide_video_section && (
+                <motion.div
+                  initial={{ opacity: 0, x: tenant?.video_position === 'right' ? 20 : -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  className="bg-card rounded-[2rem] border overflow-hidden shadow-xl"
+                >
+                  <div className="p-6 border-b bg-primary/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Youtube className="w-5 h-5 text-red-500" />
+                      <h3 className="font-bold">{tenant ? tenant.name : "Tanıtım Videomuz"}</h3>
+                    </div>
+                    <a href={tenant?.custom_video_url || "https://youtu.be/WPxtGU3yAjs"} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                      YouTube'da İzle <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
-                  <a href="https://youtu.be/WPxtGU3yAjs" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
-                    YouTube'da İzle <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-                <div className="aspect-video">
-                  <iframe
-                    className="w-full h-full"
-                    src="https://www.youtube.com/embed/WPxtGU3yAjs"
-                    title="OdevGPT Tanıtım Videosu"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                </div>
-              </motion.div>
+                  <div className="aspect-video">
+                    <iframe
+                      className="w-full h-full"
+                      src={tenant?.custom_video_url?.replace("youtu.be/", "www.youtube.com/embed/").replace("watch?v=", "embed/") || "https://www.youtube.com/embed/WPxtGU3yAjs"}
+                      title={`${tenant ? tenant.name : "OdevGPT"} Tanıtım Videosu`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Spotify Podcast Embed */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-                className="bg-[#1DB954]/5 rounded-[2rem] border border-[#1DB954]/20 overflow-hidden shadow-sm p-1"
-              >
-                <div className="p-5 flex items-center gap-2">
-                  <Music className="w-5 h-5 text-[#1DB954]" />
-                  <h3 className="font-bold">Eğitim Podcastimiz</h3>
-                </div>
-                <iframe
-                  src="https://open.spotify.com/embed/episode/3QcJY1AjuhiXwjxtRPZNKy?utm_source=generator"
-                  width="100%"
-                  height="152"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="rounded-2xl"
-                ></iframe>
-              </motion.div>
+              {!tenant?.hide_podcast_section && (
+                <motion.div
+                  initial={{ opacity: 0, x: tenant?.video_position === 'right' ? 20 : -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-[#1DB954]/5 rounded-[2rem] border border-[#1DB954]/20 overflow-hidden shadow-sm p-1"
+                >
+                  <div className="p-5 flex items-center gap-2">
+                    <Music className="w-5 h-5 text-[#1DB954]" />
+                    <h3 className="font-bold">Eğitim Podcastimiz</h3>
+                  </div>
+                  <iframe
+                    src={tenant?.custom_podcast_url || "https://open.spotify.com/embed/episode/3QcJY1AjuhiXwjxtRPZNKy?utm_source=generator"}
+                    width="100%"
+                    height="152"
+                    frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    className="rounded-2xl"
+                  ></iframe>
+                </motion.div>
+              )}
             </div>
 
-            {/* Info & PDF Column */}
-            <div className="space-y-8">
+            {/* Column B (Default: Info/PDF, If video right: This is left) */}
+            <div className={tenant?.video_position === 'right' ? "lg:order-1 space-y-8" : "lg:order-2 space-y-8"}>
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: tenant?.video_position === 'right' ? -20 : 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 className="bg-white dark:bg-card rounded-[2rem] border shadow-xl p-8 h-full"
@@ -451,7 +526,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-2xl font-bold mb-4">Proje Bilgi Paketi</h3>
                 <p className="text-muted-foreground mb-8 leading-relaxed">
-                  OdevGPT'nin vizyonu, teknolojisi ve pedagojik temelleri hakkında hazırladığımız detaylı sunuma aşağıdan ulaşabilirsiniz. Projemizin nasıl bir fark yarattığını keşfedin.
+                  {tenant ? `${tenant.name} vizyonu, teknolojisi ve teknik temelleri hakkında hazırladığımız detaylı sunuma aşağıdan ulaşabilirsiniz.` : "OdevGPT'nin vizyonu, teknolojisi ve pedagojik temelleri hakkında hazırladığımız detaylı sunuma aşağıdan ulaşabilirsiniz. Projemizin nasıl bir fark yarattığını keşfedin."}
                 </p>
 
                 <div className="space-y-4">
@@ -461,7 +536,7 @@ export default function LandingPage() {
                         <FileDown className="w-6 h-6 text-blue-500" />
                       </div>
                       <div>
-                        <p className="font-bold text-sm">OdevGPT_info_1.pdf</p>
+                        <p className="font-bold text-sm">{tenant ? `${tenant.slug}_sunum.pdf` : "OdevGPT_info_1.pdf"}</p>
                         <p className="text-[10px] text-muted-foreground">Proje Tanıtım Sunumu • 13.1 MB</p>
                       </div>
                     </div>
@@ -480,9 +555,9 @@ export default function LandingPage() {
                     <Sparkles className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-amber-900 mb-1">CTO Notu</h4>
+                    <h4 className="text-sm font-bold text-amber-900 mb-1">{tenant?.custom_cto_name || "CTO Notu"}</h4>
                     <p className="text-xs text-amber-800/80 leading-relaxed">
-                      "Yapay zekayı sadece bir araç değil, her öğrencinin yanında duran sabırlı bir mentor olarak tasarladık. Sunumumuzda bu mimariyi detaylıca bulabilirsiniz."
+                      "{tenant?.custom_cto_note || "Yapay zekayı sadece bir araç değil, her öğrencinin yanında duran sabırlı bir mentor olarak tasarladık. Sunumumuzda bu mimariyi detaylıca bulabilirsiniz."}"
                     </p>
                   </div>
                 </div>
@@ -493,60 +568,70 @@ export default function LandingPage() {
       </section>
 
       {/* Universe Discovery Button */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="container flex justify-center px-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="w-full max-w-4xl"
-          >
-            <a
-              href="https://edusonex.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative block w-full bg-black rounded-[3rem] p-1 overflow-hidden"
+      {!tenant?.hide_universe_section && (
+        <section className="py-24 relative overflow-hidden">
+          <div className="container flex justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="w-full max-w-4xl"
             >
-              {/* Animated Background for the Button */}
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 group-hover:opacity-100 blur-xl transition-opacity animate-gradient-text" />
+              <a
+                href="https://edusonex.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative block w-full bg-black rounded-[3rem] p-1 overflow-hidden"
+              >
+                {/* Animated Background for the Button */}
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 group-hover:opacity-100 blur-xl transition-opacity animate-gradient-text" />
 
-              <div className="relative bg-black/90 rounded-[2.9rem] p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 border border-white/10 group-hover:border-white/20 transition-all">
-                <div className="text-center md:text-left space-y-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-bold tracking-widest uppercase">
-                    Premium Deneyim
+                <div className="relative bg-black/90 rounded-[2.9rem] p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 border border-white/10 group-hover:border-white/20 transition-all">
+                  <div className="text-center md:text-left space-y-4">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/80 text-[10px] font-bold tracking-widest uppercase">
+                      Premium Deneyim
+                    </div>
+                    <h2 className="text-3xl md:text-5xl font-black text-white">
+                      EdusonEX Evrenini <span className="text-indigo-400 italic">Keşfedin</span>
+                    </h2>
+                    <p className="text-white/60 text-lg max-w-md">
+                      OdevGPT'nin doğduğu devasa eğitim ekosistemine yolculuğa çıkın.
+                    </p>
                   </div>
-                  <h2 className="text-3xl md:text-5xl font-black text-white">
-                    EdusonEX Evrenini <span className="text-indigo-400 italic">Keşfedin</span>
-                  </h2>
-                  <p className="text-white/60 text-lg max-w-md">
-                    OdevGPT'nin doğduğu devasa eğitim ekosistemine yolculuğa çıkın.
-                  </p>
-                </div>
 
-                <div className="relative">
-                  <div className="absolute inset-0 bg-indigo-500 blur-3xl opacity-0 group-hover:opacity-40 transition-opacity" />
-                  <div className="relative px-8 py-5 bg-white text-black rounded-2xl font-black text-xl flex items-center gap-3 transition-transform group-hover:scale-105 active:scale-95 shadow-2xl">
-                    Hemen Git
-                    <Globe className="w-6 h-6 animate-pulse" />
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-indigo-500 blur-3xl opacity-0 group-hover:opacity-40 transition-opacity" />
+                    <div className="relative px-8 py-5 bg-white text-black rounded-2xl font-black text-xl flex items-center gap-3 transition-transform group-hover:scale-105 active:scale-95 shadow-2xl">
+                      Hemen Git
+                      <Globe className="w-6 h-6 animate-pulse" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </a>
-          </motion.div>
-        </div>
-      </section>
+              </a>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="py-12 border-t bg-card/30">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-8 text-sm text-muted-foreground">
           <div className="flex flex-col items-center md:items-start gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-lg text-foreground">ODEVGPT</span>
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt={tenant.name} className="h-6 w-auto object-contain grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-primary-foreground" />
+                </div>
+              )}
+              <span className="font-bold text-lg text-foreground uppercase tracking-tighter">
+                {tenant?.name || "ODEVGPT"}
+              </span>
             </div>
-            <p className="max-w-xs text-center md:text-left">Türkiye'nin en gelişmiş yapay zeka destekli eğitim asistanı.</p>
+            <p className="max-w-xs text-center md:text-left">
+              {tenant ? `${tenant.name} öğrencileri için akıllı yapay zeka asistanı.` : "Türkiye'nin en gelişmiş yapay zeka destekli eğitim asistanı."}
+            </p>
           </div>
 
           <div className="flex gap-8">
