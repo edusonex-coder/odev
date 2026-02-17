@@ -513,8 +513,8 @@ export default function DashboardHome() {
             <Card className="bg-green-50/50 border-green-100 hover:shadow-md transition-all">
               <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                 <Target className="w-8 h-8 text-green-500 mb-2" />
-                <div className="text-2xl font-bold text-gray-800">%85</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Başarı</div>
+                <div className="text-2xl font-bold text-gray-800">%{Math.round(progressToNextLevel)}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Seviye İlerlemesi</div>
               </CardContent>
             </Card>
             <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/dashboard/leaderboard')}>
