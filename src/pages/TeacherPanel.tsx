@@ -101,7 +101,15 @@ interface ClassItem {
   schedule: string | null;
   color: string;
   invite_code: string;
-  student_count?: number; // Join ile gelecek (henüz implemente edilmedi)
+  student_count?: number;
+}
+
+interface StudentItem {
+  student_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  class_name: string;
+  joined_at: string;
 }
 
 // Mock Data for Dashboard
@@ -113,16 +121,13 @@ const weeklyStats = [
   { name: 'Cum', soru: 12 },
   { name: 'Cmt', soru: 8 },
   { name: 'Paz', soru: 6 },
-];
-
-const mockStudents = [
-  { id: 1, name: 'Ahmet Yılmaz', grade: '12. Sınıf', status: 'online', average: 85, lastActive: 'Şimdi' },
-  { id: 2, name: 'Zeynep Kaya', grade: '11. Sınıf', status: 'offline', average: 92, lastActive: '2 saat önce' },
+  { name: 'Pzt', soru: 10 }
 ];
 
 export default function TeacherPanel() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [solutionText, setSolutionText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -143,7 +148,7 @@ export default function TeacherPanel() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchQuestions(), fetchClasses()]);
+    await Promise.all([fetchQuestions(), fetchClassesAndStudents()]);
     setLoading(false);
   };
 
@@ -166,15 +171,47 @@ export default function TeacherPanel() {
     }
   };
 
-  const fetchClasses = async () => {
+  const fetchClassesAndStudents = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch Classes
+      const { data: clsData, error: clsError } = await supabase
         .from('classes')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setClasses(data || []);
+      if (clsError) throw clsError;
+      setClasses(clsData || []);
+
+      if (!clsData || clsData.length === 0) {
+        setAllStudents([]);
+        return;
+      }
+
+      // 2. Fetch Students for these classes
+      const classIds = clsData.map(c => c.id);
+      const { data: stuData, error: stuError } = await supabase
+        .from('class_students')
+        .select(`
+            student_id,
+            joined_at,
+            class_id,
+            profiles:student_id (full_name, avatar_url),
+            classes:class_id (name)
+        `)
+        .in('class_id', classIds);
+
+      if (stuError) throw stuError;
+
+      const formattedStudents = stuData?.map((s: any) => ({
+        student_id: s.student_id,
+        full_name: s.profiles?.full_name || "İsimsiz Öğrenci",
+        avatar_url: s.profiles?.avatar_url,
+        class_name: s.classes?.name || "Bilinmeyen Sınıf",
+        joined_at: s.joined_at
+      }));
+
+      setAllStudents(formattedStudents || []);
+
     } catch (error) {
       console.error("Sınıflar yüklenirken hata:", error);
     }
@@ -204,7 +241,7 @@ export default function TeacherPanel() {
       setIsNewClassOpen(false);
       setNewClassName("");
       setNewClassSchedule("");
-      fetchClasses(); // Listeyi güncelle
+      fetchClassesAndStudents(); // Listeyi güncelle
 
     } catch (error: any) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
@@ -217,7 +254,7 @@ export default function TeacherPanel() {
       const { error } = await supabase.from('classes').delete().eq('id', classId);
       if (error) throw error;
       toast({ title: "Sınıf Silindi", description: "Sınıf başarıyla kaldırıldı." });
-      fetchClasses();
+      fetchClassesAndStudents();
     } catch (error: any) {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
     }
@@ -529,7 +566,7 @@ export default function TeacherPanel() {
                             <Edit3 className="w-4 h-4 text-green-600" /> Çözümünüz
                           </h4>
                           <Textarea
-                            placeholder="Çözümü buraya yazın..."
+                            placeholder="Çözümü buraya yazın... Yazdıktan sonra gönder butonu aktifleşecektir."
                             value={solutionText}
                             onChange={(e) => setSolutionText(e.target.value)}
                             className="min-h-[200px] p-4 text-base bg-white border-2 focus:border-green-500"
@@ -624,7 +661,21 @@ export default function TeacherPanel() {
                       </CardHeader>
                       <CardContent p-0>
                         <div className="flex -space-x-2 overflow-hidden py-2 px-6 min-h-[40px]">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white bg-gray-100 text-[10px] font-medium text-gray-500">0</div>
+                          {allStudents
+                            .filter(s => s.class_name === cls.name) // name üzerinden eşleştirme çok sağlıklı değil ama elimizdeki veriye göre en hızlı yol
+                            .slice(0, 5)
+                            .map((s, i) => (
+                              <Avatar key={i} className="w-8 h-8 border-2 border-white ring-1 ring-gray-100">
+                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${s.student_id}`} />
+                                <AvatarFallback className="text-[10px] bg-gray-100 text-gray-500">{s.full_name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                            ))
+                          }
+                          {allStudents.filter(s => s.class_name === cls.name).length > 5 && (
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white bg-gray-100 text-[10px] font-medium text-gray-500">
+                              +{allStudents.filter(s => s.class_name === cls.name).length - 5}
+                            </div>
+                          )}
                         </div>
                         <div className="p-6 pt-0">
                           <Button className="w-full mt-4" variant="outline">Sınıfa Git</Button>
@@ -667,22 +718,54 @@ export default function TeacherPanel() {
             )}
           </TabsContent>
 
-          {/* STUDENTS TAB - Placeholder */}
+          {/* STUDENTS TAB */}
           <TabsContent value="students" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Öğrenci Listesi</CardTitle>
-                    <CardDescription>Tüm sınıflarınızdaki kayıtlı öğrenciler</CardDescription>
+                    <CardDescription>Tüm sınıflarınızdaki kayıtlı öğrenciler ({allStudents.length})</CardDescription>
+                  </div>
+                  <div className="relative w-64 hidden md:block">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Öğrenci ara..." className="pl-9" />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Bu özellik için önce öğrencilerinizi sınıflara eklemelisiniz.</p>
-                </div>
+                {allStudents.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Henüz kayıtlı öğrenciniz bulunmuyor.</p>
+                    <p className="text-sm mt-1">Sınıflarınızın davet kodlarını paylaşarak öğrencilerinizi sisteme dahil edebilirsiniz.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 font-medium text-sm text-muted-foreground">
+                      <div className="col-span-4">Öğrenci Adı</div>
+                      <div className="col-span-4">Kayıtlı Olduğu Sınıf</div>
+                      <div className="col-span-4 text-right">Katılım Tarihi</div>
+                    </div>
+                    {allStudents.map((stu, i) => (
+                      <div key={i} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-gray-50 transition-colors border-b last:border-0 text-sm">
+                        <div className="col-span-4 flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${stu.student_id}`} />
+                            <AvatarFallback>{stu.full_name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{stu.full_name}</span>
+                        </div>
+                        <div className="col-span-4">
+                          <Badge variant="outline" className="font-normal">{stu.class_name}</Badge>
+                        </div>
+                        <div className="col-span-4 text-right text-muted-foreground">
+                          {new Date(stu.joined_at).toLocaleDateString("tr-TR")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

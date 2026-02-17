@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Users,
@@ -19,7 +19,11 @@ import {
     Zap,
     Wand2,
     BarChart3,
-    BrainCircuit
+    BrainCircuit,
+    Trash2,
+    Pencil,
+    UserMinus,
+    MoreHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +38,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { enhanceAnnouncement, summarizeForStudents, askAI } from "@/lib/ai";
 import { motion } from "framer-motion";
 import ClassChatRoom from "@/components/ClassChatRoom";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface ClassData {
     id: string;
@@ -99,6 +121,11 @@ export default function ClassDetail() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [classAIInsights, setClassAIInsights] = useState<string | null>(null);
 
+    // Edit Class State
+    const [isEditClassOpen, setIsEditClassOpen] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editSchedule, setEditSchedule] = useState("");
+
     useEffect(() => {
         if (id) {
             fetchClassDetails();
@@ -130,6 +157,8 @@ export default function ClassDetail() {
             } as any;
 
             setClassData(formattedCls);
+            setEditName(formattedCls.name);
+            setEditSchedule(formattedCls.schedule || "");
 
             const { data: stus, error: stuError } = await supabase
                 .from('class_students')
@@ -256,15 +285,24 @@ export default function ClassDetail() {
         if (!newAssignmentTitle.trim() || !user || !id) return;
         setIsCreatingAssignment(true);
         try {
+            // Check required fields
+            if (!newAssignmentTitle) {
+                toast({ title: "Hata", description: "Ödev başlığı zorunludur.", variant: "destructive" });
+                return;
+            }
+
+            const payload = {
+                class_id: id,
+                teacher_id: user.id,
+                title: newAssignmentTitle,
+                description: newAssignmentDesc,
+                due_date: newAssignmentDueDate || null,
+                status: 'active'
+            };
+
             const { error } = await supabase
                 .from('assignments')
-                .insert({
-                    class_id: id,
-                    teacher_id: user.id,
-                    title: newAssignmentTitle,
-                    description: newAssignmentDesc,
-                    due_date: newAssignmentDueDate || null
-                });
+                .insert(payload);
 
             if (error) throw error;
 
@@ -274,10 +312,63 @@ export default function ClassDetail() {
             setNewAssignmentDueDate("");
             setShowAssignmentForm(false);
             fetchAssignments();
-        } catch (error) {
-            toast({ title: "Hata", description: "Ödev oluşturulamadı.", variant: "destructive" });
+        } catch (error: any) {
+            console.error("Assignment create error:", error);
+            toast({ title: "Hata", description: "Ödev oluşturulamadı: " + error.message, variant: "destructive" });
         } finally {
             setIsCreatingAssignment(false);
+        }
+    };
+
+    const handleUpdateClass = async () => {
+        if (!editName.trim() || !id) return;
+        try {
+            const { error } = await supabase
+                .from('classes')
+                .update({ name: editName, schedule: editSchedule })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast({ title: "Başarılı", description: "Sınıf bilgileri güncellendi." });
+            setIsEditClassOpen(false);
+            fetchClassDetails();
+        } catch (error: any) {
+            toast({ title: "Hata", description: error.message, variant: "destructive" });
+        }
+    };
+
+    const handleKickStudent = async (studentId: string) => {
+        if (!confirm("Bu öğrenciyi sınıftan çıkarmak istediğinize emin misiniz?")) return;
+        try {
+            const { error } = await supabase
+                .from('class_students')
+                .delete()
+                .eq('class_id', id)
+                .eq('student_id', studentId);
+
+            if (error) throw error;
+
+            toast({ title: "Öğrenci Çıkarıldı", description: "Öğrenci sınıftan başarıyla çıkarıldı." });
+            fetchClassDetails();
+        } catch (error: any) {
+            toast({ title: "Hata", description: error.message, variant: "destructive" });
+        }
+    };
+
+    const handleDeleteAssignment = async (assignId: string) => {
+        if (!confirm("Bu ödevi silmek istediğinize emin misiniz?")) return;
+        try {
+            const { error } = await supabase
+                .from('assignments')
+                .delete()
+                .eq('id', assignId);
+
+            if (error) throw error;
+            toast({ title: "Ödev Silindi", description: "Ödev kaldırıldı." });
+            fetchAssignments();
+        } catch (error: any) {
+            toast({ title: "Hata", description: error.message, variant: "destructive" });
         }
     };
 
@@ -373,7 +464,30 @@ export default function ClassDetail() {
                             <span className="text-gray-500">Davet Kodu:</span>
                             <span className="font-bold text-primary">{classData.invite_code}</span>
                         </div>
-                        <Button variant="outline" size="icon"><Settings className="w-4 h-4" /></Button>
+                        <Dialog open={isEditClassOpen} onOpenChange={setIsEditClassOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="icon"><Settings className="w-4 h-4" /></Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Sınıf Ayarları</DialogTitle>
+                                    <DialogDescription>Sınıf bilgilerini güncelleyin.</DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Sınıf Adı</Label>
+                                        <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Ders Programı / Saat</Label>
+                                        <Input value={editSchedule} onChange={(e) => setEditSchedule(e.target.value)} />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={handleUpdateClass}>Kaydet</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 )}
             </div>
@@ -541,7 +655,13 @@ export default function ClassDetail() {
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreVertical className="w-4 h-4" /></Button>
                                                 </DropdownMenuTrigger>
-                                                {/* Dropdown content here if needed */}
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => handleKickStudent(stu.student_id)} className="text-red-600 focus:text-red-600 cursor-pointer">
+                                                        <Trash2 className="w-4 h-4 mr-2" /> Sınıftan Çıkar
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
                                             </DropdownMenu>
                                         )}
                                     </div>
@@ -627,9 +747,20 @@ export default function ClassDetail() {
                                             </div>
                                             <p className="text-sm text-muted-foreground line-clamp-2">{assignment.description}</p>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="rounded-full">
-                                            <MoreVertical className="w-4 h-4" />
-                                        </Button>
+                                        {isTeacher && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="rounded-full">
+                                                        <MoreVertical className="w-4 h-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleDeleteAssignment(assignment.id)} className="text-destructive focus:text-destructive cursor-pointer">
+                                                        <Trash2 className="w-4 h-4 mr-2" /> Ödevi Sil
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-6 mt-6 pt-6 border-t font-medium text-xs text-muted-foreground">
                                         <div className="flex items-center gap-1.5">
@@ -638,7 +769,7 @@ export default function ClassDetail() {
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <Users className="w-4 h-4" />
-                                            0/ {students.length} Tamamlandı
+                                            {students.length} Öğrenci
                                         </div>
                                         <Button size="sm" variant="outline" className="ml-auto" onClick={() => navigate(`/dashboard/assignment/${assignment.id}`)}>
                                             Detayları Gör
@@ -726,13 +857,3 @@ export default function ClassDetail() {
         </div>
     );
 }
-
-// Minimal Dropdown for students
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
