@@ -547,13 +547,15 @@ export default function AdminPanel() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="gpt-4o">GPT-4o (Önerilen)</SelectItem>
-                                                <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Hızlı)</SelectItem>
-                                                <SelectItem value="claude-3-sonnet">Claude 3.5 Sonnet</SelectItem>
+                                                <SelectItem value="groq-llama3">Groq - Llama 3 70B (Hızlı & Ücretsiz)</SelectItem>
+                                                <SelectItem value="gemini-flash">Google Gemini 1.5 Flash (Önerilen)</SelectItem>
+                                                <SelectItem value="gpt-4o">OpenAI GPT-4o (Ücretli)</SelectItem>
+                                                <SelectItem value="claude-3-sonnet">Claude 3.5 Sonnet (Ücretli)</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <p className="text-[10px] text-muted-foreground">Çözümlerin kalitesini ve hızını etkiler.</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1 text-amber-600">
+                                            Not: Seçilen modelin API anahtarının .env dosyasında (VITE_X_API_KEY) tanımlı olduğundan emin olun.
+                                        </p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Ücretsiz Kullanıcı Günlük Soru Limiti</Label>

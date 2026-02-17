@@ -1,10 +1,104 @@
 /**
  * AI Service for OdevGPT
- * Uses Groq API for fast inference
+ * Supports multiple providers: Groq, Gemini, OpenAI, Claude
  */
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-const API_URL = "https://api.groq.com/openai/v1/chat/completions";
+// Model Configuration
+interface AIProviderConfig {
+    url: string;
+    apiKey: string | undefined;
+    model: string;
+    label: string;
+}
+
+const PROVIDERS: Record<string, AIProviderConfig> = {
+    "groq-llama3": {
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        apiKey: import.meta.env.VITE_GROQ_API_KEY,
+        model: "llama-3.3-70b-versatile",
+        label: "Groq (Llama 3)"
+    },
+    "gemini-flash": {
+        url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+        model: "gemini-1.5-flash",
+        label: "Google Gemini 1.5 Flash"
+    },
+    "gpt-4o": {
+        url: "https://api.openai.com/v1/chat/completions",
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+        model: "gpt-4o",
+        label: "OpenAI GPT-4o"
+    },
+    "gpt-4-turbo": {
+        url: "https://api.openai.com/v1/chat/completions",
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+        model: "gpt-4-turbo",
+        label: "OpenAI GPT-4 Turbo"
+    },
+    "gpt-3.5-turbo": {
+        url: "https://api.openai.com/v1/chat/completions",
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+        model: "gpt-3.5-turbo",
+        label: "OpenAI GPT-3.5 Turbo"
+    },
+    "claude-3-sonnet": {
+        // Anthropic API formatı farklı olduğu için şimdilik OpenAI uyumlu bir proxy veya farklı fetch yapısı gerekir.
+        // Basitlik için bunu şimdilik devre dışı bırakıyoruz veya yine OpenAI uyumlu bir sağlayıcı üzerinden (örn: OpenRouter) geçirebiliriz.
+        // Ancak kullanıcı doğrudan Claude seçerse ve API Key varsa, Anthropic SDK'sı gerekebilir.
+        // Bu örnekte OpenAI uyumlu endpointler (Groq, Gemini, OpenAI) odaklıyız.
+        url: "https://api.anthropic.com/v1/messages",
+        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+        model: "claude-3-sonnet-20240229",
+        label: "Claude 3.5 Sonnet"
+    }
+};
+
+/**
+ * Get accurate provider configuration based on admin settings
+ * Fallback mechanism included
+ */
+function getActiveProvider(): AIProviderConfig {
+    let selectedModelId = "groq-llama3"; // Default
+
+    try {
+        const settings = localStorage.getItem('admin_system_settings');
+        if (settings) {
+            const parsed = JSON.parse(settings);
+            if (parsed.aiModel && PROVIDERS[parsed.aiModel]) {
+                selectedModelId = parsed.aiModel;
+            }
+        }
+    } catch (e) {
+        console.warn("Error reading admin settings, using default model.");
+    }
+
+    let config = PROVIDERS[selectedModelId];
+
+    // 1. Seçilen modelin API Key'i var mı?
+    if (!config.apiKey) {
+        console.warn(`${config.label} API Key not found. Trying fallback...`);
+
+        // 2. Fallback: Önce Groq dene
+        if (PROVIDERS["groq-llama3"].apiKey) {
+            console.log("Fallback to Groq");
+            return PROVIDERS["groq-llama3"];
+        }
+
+        // 3. Fallback: Sonra Gemini dene
+        if (PROVIDERS["gemini-flash"].apiKey) {
+            console.log("Fallback to Gemini");
+            return PROVIDERS["gemini-flash"];
+        }
+
+        // 4. Fallback: Sonra OpenAI dene
+        if (PROVIDERS["gpt-4o"].apiKey) {
+            return PROVIDERS["gpt-4o"];
+        }
+    }
+
+    return config;
+}
 
 const TEACHER_PROMPT = `
 Sen OdevGPT'nin uzman eğitim koçu ve öğretmenisin.
@@ -21,39 +115,81 @@ Görevin: Öğrencilerin sorularını sadece çözmek değil, onlara konuyu öğ
 8. Önemli terimleri ve başlıkları **kalın** yazarak vurgula.
 `;
 
-export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.") {
-    if (!GROQ_API_KEY) {
-        throw new Error("AI API anahtarı bulunamadı.");
+/**
+ * Unified AI Request Handler
+ * Handles differences between OpenAI-compatible APIs (Groq, Gemini, OpenAI) and others (Anthropic)
+ */
+async function makeAIRequest(messages: { role: string; content: string }[], temperature: number = 0.7) {
+    const provider = getActiveProvider();
+
+    if (!provider.apiKey) {
+        throw new Error(`Hiçbir AI servis sağlayıcısı için API anahtarı bulunamadı (.env dosyasını kontrol edin: VITE_GROQ_API_KEY veya VITE_GEMINI_API_KEY).`);
     }
 
+    console.log(`Using AI Provider: ${provider.label}`);
+
+    // Anthropic (Claude) Special Handling
+    if (provider.model.includes('claude')) {
+        // Claude API formatı farklıdır (messages array, max_tokens vb.)
+        // Şimdilik sadece OpenAI uyumlu olanları destekliyoruz.
+        // Eğer Claude seçildiyse ve buradaysa, hata fırlatmayalım, Groq'a fallback yapalım.
+        if (PROVIDERS["groq-llama3"].apiKey) {
+            console.warn("Claude API not fully implemented yet, falling back to Groq.");
+            const fallback = PROVIDERS["groq-llama3"];
+            // Recursion yerine manuel fetch yapalım
+            const response = await fetch(fallback.url, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${fallback.apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: fallback.model,
+                    messages: messages,
+                    temperature: temperature,
+                }),
+            });
+            if (!response.ok) throw new Error("AI Fallback Error");
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+        throw new Error("Claude API implementation pending.");
+    }
+
+    // Standard OpenAI Compatible Request (Groq, Gemini, OpenAI)
     try {
-        const response = await fetch(API_URL, {
+        const response = await fetch(provider.url, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${GROQ_API_KEY}`,
+                "Authorization": `Bearer ${provider.apiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.7,
+                model: provider.model,
+                messages: messages,
+                temperature: temperature,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(`AI API Hatası: ${response.status} - ${JSON.stringify(errorData)}`);
+            throw new Error(`AI API Hatası (${provider.label}): ${response.status} - ${JSON.stringify(errorData)}`);
         }
 
         const data = await response.json();
         return data.choices[0].message.content;
+
     } catch (error) {
-        console.error("AI Error:", error);
+        console.error("AI Request Failed:", error);
         throw error;
     }
+}
+
+export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.") {
+    return makeAIRequest([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+    ], 0.7);
 }
 
 /**
@@ -90,18 +226,18 @@ export async function summarizeForStudents(content: string) {
  * compatibility wrapper for old code
  */
 export async function getAIResponse(messages: { role: string; content: string }[]) {
-    // Kullanıcı mesajını bul
-    const userMessageObj = messages.find(m => m.role === 'user');
-    const userMessage = userMessageObj?.content || "";
+    // Mesaj formatını unified yapıya uydur
+    // Eğer messages içinde system prompt varsa ayrıştır, yoksa default ekle
+    const systemMsg = messages.find(m => m.role === 'system')?.content || TEACHER_PROMPT;
+    const userMsgs = messages.filter(m => m.role !== 'system');
 
-    // Sistem mesajını bul veya varsayılanı kullan
-    let systemMessage = messages.find(m => m.role === 'system')?.content;
+    // Geçmişi koru
+    const unifiedMessages = [
+        { role: "system", content: systemMsg },
+        ...userMsgs
+    ];
 
-    if (!systemMessage) {
-        systemMessage = TEACHER_PROMPT;
-    }
-
-    return askAI(userMessage, systemMessage);
+    return makeAIRequest(unifiedMessages, 0.7);
 }
 
 /**
@@ -124,46 +260,21 @@ export async function askSocraticAI(
     6. Cevapların kısa olsun (maksimum 2-3 cümle), öğrenciyi sıkma.
     `;
 
-    // Eğer geçmiş (history) varsa, mesajları birleştir. Yoksa sadece yeni mesajı gönder.
+    // Geçmiş sohbeti birleştir
     const messages = context.history
-        ? [...context.history, { role: "user" as const, content: userMessage }]
-        : [{ role: "user" as const, content: userMessage }];
+        ? [...context.history, { role: "user", content: userMessage }]
+        : [{ role: "user", content: userMessage }];
 
-    try {
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${GROQ_API_KEY}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    ...messages
-                ],
-                temperature: 0.6,
-            }),
-        });
+    const fullMessages = [
+        { role: "system", content: systemPrompt },
+        ...messages
+    ];
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Socratic AI Error: ${response.status} - ${JSON.stringify(errorData)}`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
-    } catch (error) {
-        console.error("Socratic AI Error:", error);
-        throw error;
-    }
+    return makeAIRequest(fullMessages, 0.6);
 }
 
 /**
- * Veli için haftalık AI raporu oluşturur
- * @param studentName Öğrenci adı
- * @param stats Haftalık istatistikler
- * @returns AI tarafından oluşturulmuş rapor metni
+ * Veli raporu oluşturur
  */
 export async function generateWeeklyParentReport(
     studentName: string,
@@ -179,79 +290,39 @@ export async function generateWeeklyParentReport(
     const systemPrompt = `
     Sen OdevGPT'nin Veli Rapor Asistanısın.
     Görevin: Öğrenci performansını velilere pozitif, motive edici ve bilgilendirici bir dille sunmak.
-    
-    KURALLAR:
-    1. Dil samimi ve destekleyici olmalı
-    2. Başarıları vurgula, eksiklikleri nazikçe belirt
-    3. Somut sayılar ver ama bunları anlamlı hale getir
-    4. Gelecek için yapıcı önerilerde bulun
-    5. Emoji kullan ama abartma (maksimum 3-4 tane)
-    6. Rapor 3-4 paragraf olsun, çok uzun olmasın
-    7. Pozitif bir tonla bitir
+    Raporu Markdown formatında yaz.
     `;
 
     const prompt = `
     Lütfen ${studentName} isimli öğrenci için bir haftalık gelişim raporu oluştur.
-    
-    İstatistikler:
-    - Toplam soru sayısı: ${stats.total_questions}
-    - Çözülen soru sayısı: ${stats.solved_questions}
-    - Başarı oranı: %${stats.success_rate.toFixed(1)}
-    - Kazanılan XP: ${stats.total_xp_gained}
-    - Seviye atlaması: ${stats.level_ups} seviye
-    
-    Rapor şu bölümleri içermeli:
-    1. Genel değerlendirme (1-2 cümle)
-    2. Güçlü yönler ve başarılar
-    3. Gelişim alanları (varsa, pozitif dille)
-    4. Gelecek hafta için öneriler
-    
-    Raporu Markdown formatında yaz.
+    İstatistikler: ${JSON.stringify(stats)}
     `;
 
     return askAI(prompt, systemPrompt);
 }
 
 /**
- * Rapor için AI destekli öne çıkan noktalar (highlights) oluşturur
+ * Rapor için öne çıkan noktalar
  */
 export async function generateReportHighlights(
     studentName: string,
-    stats: {
-        total_questions: number;
-        solved_questions: number;
-        success_rate: number;
-        total_xp_gained: number;
-    }
+    stats: any
 ): Promise<string[]> {
     const systemPrompt = `
     Sen OdevGPT'nin Veli Rapor Asistanısın.
-    Görevin: Öğrenci performansından 3 öne çıkan nokta (highlight) çıkarmak.
-    
-    KURALLAR:
-    1. Her highlight kısa olmalı (maksimum 10 kelime)
-    2. Pozitif ve motive edici olmalı
-    3. Somut sayılar içermeli
-    4. Emoji kullan (her satırın başında 1 tane)
-    5. Sadece 3 madde ver, başka açıklama yapma
+    Görevin: Öğrenci performansından 3 öne çıkan nokta (highlight) çıkarmak. Max 10 kelime, 1 emoji.
     `;
 
     const prompt = `
-    ${studentName} için 3 öne çıkan nokta oluştur:
-    - ${stats.total_questions} soru sordu
-    - ${stats.solved_questions} soru çözdü
-    - %${stats.success_rate.toFixed(1)} başarı oranı
-    - ${stats.total_xp_gained} XP kazandı
-    
-    Sadece 3 madde ver, her satır bir emoji ile başlasın.
+    ${studentName} performans özeti:
+    ${JSON.stringify(stats)}
     `;
 
     const response = await askAI(prompt, systemPrompt);
 
-    // Yanıtı satırlara böl ve boş satırları temizle
     return response
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0)
-        .slice(0, 3); // İlk 3 maddeyi al
+        .slice(0, 3);
 }
