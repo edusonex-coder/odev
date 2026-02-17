@@ -351,15 +351,15 @@ export async function generateReportHighlights(
  */
 export async function analyzeQuestionImage(imageBase64: string): Promise<string> {
     const systemPrompt = `
-    Sen uzman bir OCR asistanısın. 
-    Görevin: Verilen resimdeki soruyu hatasız bir şekilde metne çevirmek.
+    Sen OdevGPT Elite OCR Mühendisisin. 
+    Görevin: Resimdeki soruyu dijital dünyaya MÜKEMMEL bir şekilde aktarmak.
     
-    KURALLAR:
-    1. Resimdeki tüm metni oku, kaydırma yapmadan orijinal sırasını koru.
-    2. Seçenekleri (A, B, C, D, E) net bir şekilde ayır.
-    3. Matematiksel ifadeleri LaTeX ($...$) formatında yaz.
-    4. Sadece sorunun metnini döndür, ek açıklama yapma.
-    5. Eğer resim kalitesizse ve okuyamıyorsan "HATA: Metin okunamadı" döndür.
+    ÖZEL TALİMATLAR:
+    1. **Sıfır Hata Politikası:** Harf, rakam veya sembol yanlışlığı kabul edilemez.
+    2. **Pedagojik Normalizasyon:** Metni olduğu gibi oku ama karmaşık matematiksel ifadeleri, üst/alt simgeleri ve formülleri STANDART LaTeX ($...$) formatına sadık kalarak yaz.
+    3. **Yapısal Bütünlük:** Sorunun kökü ile seçenekler arasındaki boşluğu koru. Her seçeneği (A, B, C, D, E) kesinlikle yeni bir satıra yaz.
+    4. **Görsel Kaymaları Önle:** Metin bloklarını resimdeki mantıksal sırasıyla işle.
+    5. **Temiz Çıktı:** Cevabında "İşte sorunuz" veya "Okunan metin" gibi hiçbir ekstra ifade olmamalı. Sadece ve sadece sorunun kendisini döndür.
     `;
 
     // Vision destekli modelleri öncelikle seç (Gemini Flash çok hızlı ve başarılıdır)

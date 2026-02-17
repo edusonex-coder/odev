@@ -31,6 +31,20 @@ export default function AskQuestion() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Taslağı Yerel Depolamadan Yükle
+  useEffect(() => {
+    const savedText = localStorage.getItem("ask_question_draft_text");
+    const savedSubject = localStorage.getItem("ask_question_draft_subject");
+    if (savedText) setQuestionText(savedText);
+    if (savedSubject) setSelectedSubject(savedSubject);
+  }, []);
+
+  // Taslağı Otomatik Kaydet
+  useEffect(() => {
+    localStorage.setItem("ask_question_draft_text", questionText);
+    localStorage.setItem("ask_question_draft_subject", selectedSubject);
+  }, [questionText, selectedSubject]);
+
   // Kamera akışını yöneten Effect
   useEffect(() => {
     if (showCamera && videoRef.current && stream) {
@@ -291,6 +305,9 @@ export default function AskQuestion() {
 
       // Temizle ve yönlendir => History sayfasına gidip sonucu görsün
       setQuestionText("");
+      setSelectedSubject("");
+      localStorage.removeItem("ask_question_draft_text");
+      localStorage.removeItem("ask_question_draft_subject");
       setImage(null);
       setImageFile(null);
       navigate("/dashboard/history");

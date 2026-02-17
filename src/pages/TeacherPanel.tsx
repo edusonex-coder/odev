@@ -152,9 +152,28 @@ export default function TeacherPanel() {
   const [isEnhancingAnnouncement, setIsEnhancingAnnouncement] = useState(false);
   const [targetClassId, setTargetClassId] = useState<string>("all");
 
+  // Taslakları Yükle (Ototropik State)
   useEffect(() => {
-    fetchData();
+    const savedAnnDraft = localStorage.getItem("teacher_announcement_draft");
+    const savedSolDraft = localStorage.getItem("teacher_solution_draft");
+    if (savedAnnDraft) setAnnouncementDraft(savedAnnDraft);
+    if (savedSolDraft) setSolutionText(savedSolDraft);
   }, []);
+
+  // Taslakları Kaydet
+  useEffect(() => {
+    localStorage.setItem("teacher_announcement_draft", announcementDraft);
+  }, [announcementDraft]);
+
+  useEffect(() => {
+    localStorage.setItem("teacher_solution_draft", solutionText);
+  }, [solutionText]);
+
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user, tenant]); // User veya tenant değiştiğinde (oturum tazelendiğinde) verileri tekrar çek
 
   const fetchData = async () => {
     setLoading(true);
@@ -285,6 +304,7 @@ export default function TeacherPanel() {
       await supabase.from("questions").update({ status: "completed" }).eq("id", selectedQuestionId);
       toast({ title: "Çözüm Gönderildi! 🎉", description: "Eline sağlık hocam." });
       setSolutionText("");
+      localStorage.removeItem("teacher_solution_draft");
       setSelectedQuestionId(null);
       fetchQuestions();
     } catch (error: any) {
@@ -329,6 +349,7 @@ export default function TeacherPanel() {
       setIsAnnouncementOpen(false);
       setAnnouncementContent("");
       setAnnouncementDraft("");
+      localStorage.removeItem("teacher_announcement_draft");
     } catch (err: any) {
       toast({ title: "Hata", description: err.message, variant: "destructive" });
     }

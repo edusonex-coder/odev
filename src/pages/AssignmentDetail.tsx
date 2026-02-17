@@ -76,6 +76,31 @@ export default function AssignmentDetail() {
 
     const isTeacher = profile?.role === 'teacher';
 
+    // Taslakları Yükle
+    useEffect(() => {
+        const savedContent = localStorage.getItem(`assignment_draft_content_${id}`);
+        const savedFeedback = localStorage.getItem(`assignment_draft_feedback_${id}`);
+        const savedGrade = localStorage.getItem(`assignment_draft_grade_${id}`);
+
+        if (savedContent && !isTeacher) setContent(savedContent);
+        if (savedFeedback && isTeacher) setFeedbackInput(savedFeedback);
+        if (savedGrade && isTeacher) setGradeInput(savedGrade);
+    }, [id, isTeacher]);
+
+    // Taslakları Kaydet
+    useEffect(() => {
+        if (!isTeacher && content) {
+            localStorage.setItem(`assignment_draft_content_${id}`, content);
+        }
+    }, [content, id, isTeacher]);
+
+    useEffect(() => {
+        if (isTeacher) {
+            if (feedbackInput) localStorage.setItem(`assignment_draft_feedback_${id}`, feedbackInput);
+            if (gradeInput) localStorage.setItem(`assignment_draft_grade_${id}`, gradeInput);
+        }
+    }, [feedbackInput, gradeInput, id, isTeacher]);
+
     useEffect(() => {
         if (id && user) {
             fetchAssignmentDetails();
@@ -154,6 +179,8 @@ export default function AssignmentDetail() {
             setGradingSub(null);
             setGradeInput("");
             setFeedbackInput("");
+            localStorage.removeItem(`assignment_draft_feedback_${id}`);
+            localStorage.removeItem(`assignment_draft_grade_${id}`);
             fetchAssignmentDetails();
         } catch (error: any) {
             toast({ title: "Hata", description: "Not verilirken bir hata oluştu.", variant: "destructive" });
@@ -233,6 +260,7 @@ export default function AssignmentDetail() {
             grantXP(user.id, XP_VALUES.ASSIGNMENT_SUBMISSION);
 
             setSelectedFile(null);
+            localStorage.removeItem(`assignment_draft_content_${id}`);
             fetchAssignmentDetails();
         } catch (error: any) {
             console.error("Submission error:", error);

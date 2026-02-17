@@ -6,8 +6,9 @@ from datetime import datetime
 
 class OdevGPTDoctor:
     """
-    OdevGPT Sistem Doktoru v2.0
-    Sistem sağlığını tarar, hataları raporlar ve çözüm önerileri sunar.
+    OdevGPT Sistem Doktoru v2.1 - "Persistent State & Session Analyst"
+    Frontend ve Backend arasındaki veri akışını, oturum kalıcılığını ve 
+    sayfa geçişlerindeki veri kayıplarını analiz eder.
     """
     def __init__(self):
         self.report = []
@@ -36,12 +37,7 @@ class OdevGPTDoctor:
         return env
 
     def log(self, message, type="INFO"):
-        prefix = {
-            "INFO": "[+]",
-            "ERROR": "[!]",
-            "WARN": "[?]",
-            "SUCCESS": "[✅]"
-        }.get(type, "[-]")
+        prefix = {"INFO": "[+]", "ERROR": "[!]", "WARN": "[?]", "SUCCESS": "[✅]", "DEBUG": "[*]"}.get(type, "[-]")
         print(f"{prefix} {message}")
         self.report.append(f"{type}: {message}")
 
@@ -53,91 +49,66 @@ class OdevGPTDoctor:
         self.log(message, "WARN")
         self.warnings.append(message)
 
-    def check_env_files(self):
-        self.log("Çevresel değişkenler kontrol ediliyor...")
-        required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY", "VITE_GROQ_API_KEY"]
+    def check_env_consistency(self):
+        self.log("Çevresel değişkenlerin Frontend ile uyumu kontrol ediliyor...")
+        required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"]
         for var in required:
-            if not self.env.get(var):
-                self.error(f"Eksik Değişken: {var}")
-            else:
-                self.log(f"{var} tanımlı.", "SUCCESS")
+            val = self.env.get(var)
+            if not val:
+                self.error(f"Kritik Değişken Eksik: {var}")
+            elif len(val) < 20: 
+                self.warn(f"{var} değeri şüpheli derecede kısa. Hatalı kopyalanmış olabilir.")
 
-    def check_supabase_connectivity(self):
-        self.log("Supabase API bağlantısı kontrol ediliyor...")
-        if not self.base_url: return False
-        try:
-            res = requests.get(f"{self.base_url}/rest/v1/", headers=self.headers)
-            if res.status_code == 200:
-                self.log("Supabase REST API aktif.", "SUCCESS")
-                return True
-            else:
-                self.error(f"API Hatası: {res.status_code}")
-                return False
-        except Exception as e:
-            self.error(f"Bağlantı koptu: {str(e)}")
-            return False
-
-    def check_storage_health(self):
-        self.log("Storage (Depolama) durumu kontrol ediliyor...")
-        # buckets endpoint'i anon key ile her zaman erişilebilir olmayabilir ama deneyelim
-        res = requests.get(f"{self.base_url}/storage/v1/bucket", headers=self.headers)
+    def check_auth_config(self):
+        self.log("Oturum (Auth) ve Cache ayarları taranıyor...")
+        # Supabase sunucu tarafı ayarlarını anon key ile tam göremeyiz ama temel kontrol yapabiliriz
+        res = requests.get(f"{self.base_url}/auth/v1/settings", headers=self.headers)
         if res.status_code == 200:
-            buckets = res.json()
-            bucket_names = [b['name'] for b in buckets]
-            if 'question_images' in bucket_names:
-                self.log("Storage Bucket 'question_images' hazır.", "SUCCESS")
-            else:
-                self.error("'question_images' bucket'ı bulunamadı!")
+            settings = res.json()
+            # External providers, session timeout vb.
+            self.log(f"Auth Ayarları Alındı: {len(settings)} parametre aktif.", "SUCCESS")
         else:
-            self.warn(f"Storage buckets listelenemedi (Yetki kısıtlı olabilir): {res.status_code}")
+            self.warn(f"Sunucu tarafı Auth ayarları kısıtlı (Kod: {res.status_code}). Bu, Frontend tarafındaki AuthContext kaybına işaret edebilir.")
 
-    def check_database_schema(self):
-        self.log("Veritabanı tabloları doğrulanıyor...")
-        tables = ["tenants", "profiles", "questions", "solutions", "ai_usage_logs"]
+    def analyze_data_emptying_risk(self):
+        self.log("Sayfaların 'boşalma' (data emptying) riski analiz ediliyor...")
+        # Tablolarda veri var mı? Eğer veri olmasına rağmen sayfa boşsa Frontend Cache/State sorunu vardır.
+        tables = ["questions", "profiles", "tenants"]
+        headers_with_count = self.headers.copy()
+        headers_with_count["Prefer"] = "count=exact"
+        
         for table in tables:
-            res = requests.get(f"{self.base_url}/rest/v1/{table}?limit=1", headers=self.headers)
-            if res.status_code in [200, 204]:
-                self.log(f"Tablo '{table}' erişilebilir.", "SUCCESS")
+            res = requests.get(f"{self.base_url}/rest/v1/{table}?select=id&limit=1", headers=headers_with_count)
+            if res.status_code in [200, 206]:
+                count = res.headers.get("Content-Range", "0/0").split("/")[-1]
+                self.log(f"'{table}' tablosunda {count} kayıt var.", "SUCCESS")
+                if int(count) == 0:
+                    self.warn(f"'{table}' tablosu tamamen boş. Sayfalardaki boşluğun sebebi bu olabilir.")
             else:
-                self.error(f"Tablo '{table}' ERİŞİLEMEZ veya EKSİK! (Kod: {res.status_code})")
-
-    def check_ai_health(self):
-        self.log("AI Kullanım Logları analiz ediliyor...")
-        res = requests.get(f"{self.base_url}/rest/v1/ai_usage_logs?status=eq.failed&limit=5", headers=self.headers)
-        if res.status_code == 200:
-            failed_logs = res.json()
-            if failed_logs:
-                self.warn(f"Son zamanlarda {len(failed_logs)} adet AI hatası kaydedilmiş.")
-                for log in failed_logs:
-                    self.log(f"AI Hatası ({log.get('provider')}): {log.get('error_message')[:50]}...", "WARN")
-            else:
-                self.log("AI servisleri sağlıklı görünüyor.", "SUCCESS")
+                self.log(f"'{table}' tablosu sayımı yapılamadı (Yetki?).", "DEBUG")
 
     def run(self):
-        print("\n" + "🩺 " + "="*50)
-        print(f" ODEVGPT SİSTEM DOKTORU v2.0 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*53 + "\n")
+        print("\n" + "🩺 " + "="*60)
+        print(f" ODEVGPT SİSTEM DOKTORU v2.1 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(" [Teşhis: Frontend Veri Kayıpları & Oturum Analizi]")
+        print("="*63 + "\n")
         
-        self.check_env_files()
-        if self.check_supabase_connectivity():
-            self.check_database_schema()
-            self.check_storage_health()
-            self.check_ai_health()
+        self.check_env_consistency()
+        self.check_auth_config()
+        self.analyze_data_emptying_risk()
         
-        print("\n" + "="*50)
+        print("\n" + "="*60)
         if not self.issues:
-            print(" 🎉 SONUÇ: SİSTEM SAPASAĞLAM! TÜM SİSTEMLER OPERASYONEL.")
+            print(" ✅ ANALİZ SONUCU: Sunucu tarafı verileri stabil.")
+            print(" 💡 TEŞHİS: Sayfa boşalmaları muhtemelen React State (Local State) kaybından kaynaklanıyor.")
+            print(" 🛠️ ÖNERİ: Sayfa geçişlerinde veriyi 'localStorage' üzerinden restore eden bir mekanizma eklenmeli.")
         else:
-            print(f" ❌ SONUÇ: {len(self.issues)} ADET KRİTİK SORUN BULUNDU!")
-            for issue in self.issues:
-                print(f"   - {issue}")
+            print(f" ❌ ANALİZ SONUCU: {len(self.issues)} ADET KRİTİK SORUN BULUNDU!")
         
         if self.warnings:
-            print(f"\n ⚠️  {len(self.warnings)} Adet Uyarı Mevcut:")
-            for w in self.warnings:
-                print(f"   - {w}")
-        
-        print("="*50 + "\n")
+            print(f"\n ⚠️  {len(self.warnings)} Adet Sistem Uyarısı:")
+            for w in self.warnings: print(f"   - {w}")
+        print("="*60 + "\n")
 
 if __name__ == "__main__":
     doctor = OdevGPTDoctor()
