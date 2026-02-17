@@ -137,6 +137,9 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
 
         try {
             console.log(`AI Request: Attempting with ${provider.label}...`);
+
+            // Format content correctly for the API
+            // Some providers might need special handling for vision, but standard OpenAI format is used here.
             const response = await fetch(provider.url, {
                 method: "POST",
                 headers: {
@@ -147,6 +150,7 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
                     model: provider.model,
                     messages: messages,
                     temperature: temperature,
+                    max_tokens: 1000 // Ensure enough tokens for complex tasks
                 }),
             });
 
@@ -340,4 +344,37 @@ export async function generateReportHighlights(
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .slice(0, 3);
+}
+/**
+ * Gelişmiş Vision OCR: Resimdeki soruyu okur ve tertemiz metne çevirir.
+ * Tesseract yerine Vision modellerini (Gemini Flash, GPT-4o) kullanır.
+ */
+export async function analyzeQuestionImage(imageBase64: string): Promise<string> {
+    const systemPrompt = `
+    Sen uzman bir OCR asistanısın. 
+    Görevin: Verilen resimdeki soruyu hatasız bir şekilde metne çevirmek.
+    
+    KURALLAR:
+    1. Resimdeki tüm metni oku, kaydırma yapmadan orijinal sırasını koru.
+    2. Seçenekleri (A, B, C, D, E) net bir şekilde ayır.
+    3. Matematiksel ifadeleri LaTeX ($...$) formatında yaz.
+    4. Sadece sorunun metnini döndür, ek açıklama yapma.
+    5. Eğer resim kalitesizse ve okuyamıyorsan "HATA: Metin okunamadı" döndür.
+    `;
+
+    // Vision destekli modelleri öncelikle seç (Gemini Flash çok hızlı ve başarılıdır)
+    const visionMessages = [
+        { role: "system", content: systemPrompt },
+        {
+            role: "user",
+            content: [
+                { type: "text", text: "Lütfen bu resimdeki soruyu metne çevir:" },
+                { type: "image_url", image_url: { url: imageBase64 } }
+            ]
+        }
+    ];
+
+    // makeAIRequest tipini esnetmemiz gerekecek çünkü normalde string bekliyor.
+    // Ancak makeAIRequest içindeki JSON.stringify bunu zaten halledecektir.
+    return makeAIRequest(visionMessages as any, 0.1);
 }

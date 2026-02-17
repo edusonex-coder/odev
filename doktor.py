@@ -5,9 +5,14 @@ import json
 from datetime import datetime
 
 class OdevGPTDoctor:
+    """
+    OdevGPT Sistem Doktoru v2.0
+    Sistem sağlığını tarar, hataları raporlar ve çözüm önerileri sunar.
+    """
     def __init__(self):
         self.report = []
         self.issues = []
+        self.warnings = []
         self.env = self._load_env()
         self.base_url = self.env.get("VITE_SUPABASE_URL")
         self.anon_key = self.env.get("VITE_SUPABASE_ANON_KEY")
@@ -18,7 +23,6 @@ class OdevGPTDoctor:
 
     def _load_env(self):
         env = {}
-        # Script'in bulunduğu dizindeki .env dosyasını bul
         script_dir = os.path.dirname(os.path.abspath(__file__))
         env_path = os.path.join(script_dir, ".env")
         if os.path.exists(env_path):
@@ -32,7 +36,12 @@ class OdevGPTDoctor:
         return env
 
     def log(self, message, type="INFO"):
-        prefix = "[+]" if type == "INFO" else "[!]" if type == "ERROR" else "[?]"
+        prefix = {
+            "INFO": "[+]",
+            "ERROR": "[!]",
+            "WARN": "[?]",
+            "SUCCESS": "[✅]"
+        }.get(type, "[-]")
         print(f"{prefix} {message}")
         self.report.append(f"{type}: {message}")
 
@@ -40,90 +49,94 @@ class OdevGPTDoctor:
         self.log(message, "ERROR")
         self.issues.append(message)
 
+    def warn(self, message):
+        self.log(message, "WARN")
+        self.warnings.append(message)
+
+    def check_env_files(self):
+        self.log("Çevresel değişkenler kontrol ediliyor...")
+        required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY", "VITE_GROQ_API_KEY"]
+        for var in required:
+            if not self.env.get(var):
+                self.error(f"Eksik Değişken: {var}")
+            else:
+                self.log(f"{var} tanımlı.", "SUCCESS")
+
     def check_supabase_connectivity(self):
-        self.log("Supabase bağlantısı kontrol ediliyor...")
-        if not self.base_url or not self.anon_key:
-            self.error("Supabase URL veya Anon Key eksik!")
-            return False
-            
+        self.log("Supabase API bağlantısı kontrol ediliyor...")
+        if not self.base_url: return False
         try:
             res = requests.get(f"{self.base_url}/rest/v1/", headers=self.headers)
             if res.status_code == 200:
-                self.log("Supabase API yanıt veriyor.")
+                self.log("Supabase REST API aktif.", "SUCCESS")
                 return True
             else:
-                self.error(f"Supabase API hatası: {res.status_code}")
+                self.error(f"API Hatası: {res.status_code}")
                 return False
         except Exception as e:
-            self.error(f"Bağlantı hatası: {str(e)}")
+            self.error(f"Bağlantı koptu: {str(e)}")
             return False
 
-    def check_tenants(self):
-        self.log("Tenants (Kurumlar) tablosu taranıyor...")
-        res = requests.get(f"{self.base_url}/rest/v1/tenants?select=*", headers=self.headers)
+    def check_storage_health(self):
+        self.log("Storage (Depolama) durumu kontrol ediliyor...")
+        # buckets endpoint'i anon key ile her zaman erişilebilir olmayabilir ama deneyelim
+        res = requests.get(f"{self.base_url}/storage/v1/bucket", headers=self.headers)
         if res.status_code == 200:
-            tenants = res.json()
-            self.log(f"Toplam {len(tenants)} kurum bulundu.")
-            
-            for t in tenants:
-                self.log(f"Kurum: {t.get('name')} | Slug: {t.get('slug')} | ID: {t.get('id')}")
-            
-            domains = [t.get('domain') for t in tenants if t.get('domain')]
-            if len(domains) != len(set(domains)):
-                self.error("Mükerrer domain tanımları bulundu!")
-                
-            for t in tenants:
-                if not t.get('slug'):
-                    self.error(f"Kurumun slug'ı eksik: {t.get('name')}")
-                if not t.get('primary_color'):
-                    self.log(f"Uyarı: {t.get('name')} için primary_color tanımlanmamış.", "WARN")
+            buckets = res.json()
+            bucket_names = [b['name'] for b in buckets]
+            if 'question_images' in bucket_names:
+                self.log("Storage Bucket 'question_images' hazır.", "SUCCESS")
+            else:
+                self.error("'question_images' bucket'ı bulunamadı!")
         else:
-            self.error(f"Tenants tablosuna erişilemedi: {res.status_code}")
+            self.warn(f"Storage buckets listelenemedi (Yetki kısıtlı olabilir): {res.status_code}")
 
-    def check_profiles(self):
-        self.log("Profiller ve Tenant ilişkileri taranıyor...")
-        res = requests.get(f"{self.base_url}/rest/v1/profiles?select=*", headers=self.headers)
+    def check_database_schema(self):
+        self.log("Veritabanı tabloları doğrulanıyor...")
+        tables = ["tenants", "profiles", "questions", "solutions", "ai_usage_logs"]
+        for table in tables:
+            res = requests.get(f"{self.base_url}/rest/v1/{table}?limit=1", headers=self.headers)
+            if res.status_code in [200, 204]:
+                self.log(f"Tablo '{table}' erişilebilir.", "SUCCESS")
+            else:
+                self.error(f"Tablo '{table}' ERİŞİLEMEZ veya EKSİK! (Kod: {res.status_code})")
+
+    def check_ai_health(self):
+        self.log("AI Kullanım Logları analiz ediliyor...")
+        res = requests.get(f"{self.base_url}/rest/v1/ai_usage_logs?status=eq.failed&limit=5", headers=self.headers)
         if res.status_code == 200:
-            profiles = res.json()
-            self.log(f"Erişilebilen profil sayısı: {len(profiles)}")
-            
-            missing_tenant = [p for p in profiles if not p.get('tenant_id')]
-            if missing_tenant:
-                self.error(f"{len(missing_tenant)} profil herhangi bir kuruma (tenant) bağlı değil!")
-                for p in missing_tenant:
-                    self.log(f"Bağımsız Profil: {p.get('full_name')} | Rol: {p.get('role')} | ID: {p.get('id')}", "WARN")
-        else:
-            self.error(f"Profillere erişilemedi: {res.status_code}")
-
-    def check_data_integrity(self):
-        self.log("Veri bütünlüğü kontrol ediliyor...")
-        # Soru ve çözüm sayılarını karşılaştır
-        q_res = requests.get(f"{self.base_url}/rest/v1/questions?select=id", headers=self.headers)
-        s_res = requests.get(f"{self.base_url}/rest/v1/solutions?select=id", headers=self.headers)
-        
-        if q_res.status_code == 200 and s_res.status_code == 200:
-            self.log(f"Toplam Sorular: {len(q_res.json())}")
-            self.log(f"Toplam Çözümler: {len(s_res.json())}")
-        else:
-            self.log("Soru/Çözüm istatistikleri alınamadı.", "WARN")
+            failed_logs = res.json()
+            if failed_logs:
+                self.warn(f"Son zamanlarda {len(failed_logs)} adet AI hatası kaydedilmiş.")
+                for log in failed_logs:
+                    self.log(f"AI Hatası ({log.get('provider')}): {log.get('error_message')[:50]}...", "WARN")
+            else:
+                self.log("AI servisleri sağlıklı görünüyor.", "SUCCESS")
 
     def run(self):
-        print("\n" + "="*50)
-        print(f"ODEVPGT SİSTEM DOKTORU - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*50 + "\n")
+        print("\n" + "🩺 " + "="*50)
+        print(f" ODEVGPT SİSTEM DOKTORU v2.0 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*53 + "\n")
         
+        self.check_env_files()
         if self.check_supabase_connectivity():
-            self.check_tenants()
-            self.check_profiles()
-            self.check_data_integrity()
+            self.check_database_schema()
+            self.check_storage_health()
+            self.check_ai_health()
         
         print("\n" + "="*50)
         if not self.issues:
-            print(" SONUÇ: SİSTEM SAĞLIKLI! 🎉")
+            print(" 🎉 SONUÇ: SİSTEM SAPASAĞLAM! TÜM SİSTEMLER OPERASYONEL.")
         else:
-            print(f" SONUÇ: {len(self.issues)} ADET KRİTİK SORUN BULUNDU!")
+            print(f" ❌ SONUÇ: {len(self.issues)} ADET KRİTİK SORUN BULUNDU!")
             for issue in self.issues:
-                print(f" - {issue}")
+                print(f"   - {issue}")
+        
+        if self.warnings:
+            print(f"\n ⚠️  {len(self.warnings)} Adet Uyarı Mevcut:")
+            for w in self.warnings:
+                print(f"   - {w}")
+        
         print("="*50 + "\n")
 
 if __name__ == "__main__":

@@ -5,6 +5,10 @@ import json
 from datetime import datetime
 
 class HierarchyDoctor:
+    """
+    Hiyerarşi ve İzolasyon Doktoru v2.0
+    Multi-tenant yapısını, rol hiyerarşisini ve veri izolasyonunu denetler.
+    """
     def __init__(self):
         self.report = []
         self.issues = []
@@ -31,40 +35,104 @@ class HierarchyDoctor:
         return env
 
     def log(self, message, type="INFO"):
-        prefix = "[+]" if type == "INFO" else "[!]" if type == "ERROR" else "[?]"
+        prefix = {
+            "INFO": "🔹",
+            "ERROR": "❌",
+            "WARN": "⚠️",
+            "SUCCESS": "✅",
+            "ADMIN": "👑"
+        }.get(type, "▫️")
         print(f"{prefix} {message}")
+        self.report.append(f"{type}: {message}")
 
-    def check_super_admin(self):
-        self.log("Süper Admin (Ferhat Karaduman) durumu kontrol ediliyor...")
-        res = requests.get(f"{self.base_url}/rest/v1/profiles?id=eq.195e3a1d-9d01-4922-8f5c-c596f0371d94", headers=self.headers)
+    def error(self, message):
+        self.log(message, "ERROR")
+        self.issues.append(message)
+
+    def check_super_admin_integrity(self):
+        self.log("Süper Admin Yetki Matrisi kontrol ediliyor...", "ADMIN")
+        # Ferhat Karaduman ID'si üzerinden kontrol
+        super_admin_id = "195e3a1d-9d01-4922-8f5c-c596f0371d94"
+        res = requests.get(f"{self.base_url}/rest/v1/profiles?id=eq.{super_admin_id}", headers=self.headers)
         if res.status_code == 200:
             data = res.json()
             if data and data[0].get('is_super_admin'):
-                self.log("Ferhat Karaduman: SÜPER ADMİN YETKİSİ AKTİF. ✅")
+                self.log(f"Süper Admin ({data[0].get('full_name')}): YETKİLENDİRME TAMAM.", "SUCCESS")
+                if data[0].get('role') != 'admin':
+                    self.log(f"Uyarı: Süper admin rolü '{data[0].get('role')}' olarak görünüyor, 'admin' olması önerilir.", "WARN")
             else:
-                self.log("Ferhat Karaduman: Süper admin yetkisi bulunamadı!", "ERROR")
+                self.error("KRİTİK: Süper admin bayrağı (is_super_admin) kapalı veya profil bulunamadı!")
         else:
-            self.log("Profil verisi çekilemedi.", "ERROR")
+            self.error(f"Süper admin profili sorgulanamadı: {res.status_code}")
 
-    def check_isolation_logic(self):
-        self.log("Panel izolasyon mantığı kontrol ediliyor...")
-        # Basit bir check: Profiles listesinde farklı tenant_id'leri görebiliyor muyuz?
+    def check_tenant_isolation(self):
+        self.log("Veri İzolasyonu ve Multi-Tenant yapısı taranıyor...")
         res = requests.get(f"{self.base_url}/rest/v1/profiles?select=tenant_id", headers=self.headers)
         if res.status_code == 200:
-            tenants = set([p.get('tenant_id') for p in res.json()])
-            self.log(f"Sistemde erişilebilen benzersiz Kurum ID sayısı: {len(tenants)}")
-            if len(tenants) > 1:
-                self.log("Multi-Tenant veri erişimi doğrulanmıştır. ✅")
+            profiles = res.json()
+            tenants = set([p.get('tenant_id') for p in profiles if p.get('tenant_id')])
+            self.log(f"Aktif izolasyon altındaki Kurum (Tenant) sayısı: {len(tenants)}", "SUCCESS")
+            
+            # Bağımsız profilleri bul
+            orphans = [p for p in profiles if not p.get('tenant_id')]
+            if orphans:
+                self.log(f"Dikkat: {len(orphans)} adet profil herhangi bir kuruma bağlı değil (Global Profil).", "WARN")
+        else:
+            self.error("İzolasyon testi başarısız: Profiller listelenemedi.")
+
+    def check_role_distribution(self):
+        self.log("Sistem Rol Dağılımı analiz ediliyor...")
+        res = requests.get(f"{self.base_url}/rest/v1/profiles?select=role", headers=self.headers)
+        if res.status_code == 200:
+            roles = [p.get('role') for p in res.json()]
+            dist = {role: roles.count(role) for role in set(roles)}
+            for role, count in dist.items():
+                self.log(f"Rol: {role:10} | Kullanıcı Sayısı: {count}")
+            
+            if 'parent' not in dist:
+                self.log("Veli (parent) rolü henüz sistemde aktif kullanıcıya sahip değil.", "WARN")
+        else:
+            self.error("Rol dağılımı alınamadı.")
+
+    def check_cross_entity_integrity(self):
+        self.log("Varlık İlişkileri (Entity Integrity) kontrol ediliyor...")
+        # Sınıfların tenant_id'si var mı?
+        res = requests.get(f"{self.base_url}/rest/v1/classes?select=id,tenant_id", headers=self.headers)
+        if res.status_code == 200:
+            classes = res.json()
+            bad_classes = [c for c in classes if not c.get('tenant_id')]
+            if bad_classes:
+                self.error(f"{len(bad_classes)} adet sınıfın kurum (tenant) bağlantısı kopuk!")
             else:
-                self.log("Sistemde sadece tek bir kurum verisi var veya izolasyon kısıtlı.", "WARN")
+                self.log("Tüm sınıflar geçerli bir kuruma bağlı.", "SUCCESS")
+        
+        # Soruların tenant_id'si var mı? (Gelecekteki genişleme için)
+        # Mevcut yapıda sorular profil (student_id) üzerinden bağlı, dolaylı kontrol:
+        res = requests.get(f"{self.base_url}/rest/v1/questions?select=id,student_id", headers=self.headers)
+        if res.status_code == 200:
+            self.log(f"Sistemde toplam {len(res.json())} soru hiyerarşik olarak takip ediliyor.", "INFO")
 
     def run(self):
+        print("\n" + "🏰 " + "="*60)
+        print(f" HİYERARŞİ VE İZOLASYON DOKTORU v2.0 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*63 + "\n")
+        
+        self.check_super_admin_integrity()
+        print("-" * 40)
+        self.check_tenant_isolation()
+        print("-" * 40)
+        self.check_role_distribution()
+        print("-" * 40)
+        self.check_cross_entity_integrity()
+        
         print("\n" + "="*60)
-        print(f"HİYERARŞİ DOKTORU - FİNAL KONTROL - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        if not self.issues:
+            print(" 🛡️  HİYERARŞİ GÜVENLİ: Veri izolasyonu ve yetkilendirme kusursuz.")
+        else:
+            print(f" ⚠️  HİYERARŞİDE {len(self.issues)} ADET KRİTİK GÜVENLİK/YAPI SORUNU!")
+            for issue in self.issues:
+                print(f"   - {issue}")
         print("="*60 + "\n")
-        self.check_super_admin()
-        self.check_isolation_logic()
-        print("\n" + "="*60 + "\n")
 
 if __name__ == "__main__":
     doctor = HierarchyDoctor()

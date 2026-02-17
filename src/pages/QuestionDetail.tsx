@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
-import { askSocraticAI, getAIResponse } from "@/lib/ai";
+import { askSocraticAI, getAIResponse, analyzeQuestionImage } from "@/lib/ai";
 import { toast } from "sonner";
 import { grantXP, XP_VALUES } from "@/lib/gamification";
 import ReactMarkdown from 'react-markdown';
@@ -101,9 +101,35 @@ export default function QuestionDetail() {
             setIsAutoSolving(true);
 
             try {
+                // 0. Eğer metin yoksa ama resim varsa, önce Vision ile metni çıkar
+                let finalQuestionText = question.question_text || "";
+
+                if (!finalQuestionText && question.image_url) {
+                    toast.info("Görseldeki yazı yapay zeka tarafından okunuyor... 📖");
+                    const publicUrl = getPublicUrl(question.image_url);
+                    if (publicUrl) {
+                        try {
+                            const extractedText = await analyzeQuestionImage(publicUrl);
+                            if (extractedText && !extractedText.startsWith("HATA:")) {
+                                finalQuestionText = extractedText;
+                                // Veritabanını güncelle (kalıcı hale getir)
+                                await supabase.from("questions")
+                                    .update({ question_text: extractedText })
+                                    .eq("id", question.id);
+
+                                // State'i güncelle ki arayüzde de görünsün
+                                setQuestion(prev => prev ? { ...prev, question_text: extractedText } : prev);
+                                toast.success("Metin başarıyla dijitalleştirildi! ✨");
+                            }
+                        } catch (visionErr) {
+                            console.error("Vision OCR Error in detail:", visionErr);
+                        }
+                    }
+                }
+
                 toast.info("Yapay Zeka sorunu inceliyor... 🤖");
 
-                const aiPrompt = `Öğrenci sorusu (${question.subject}): ${question.question_text || "Görsel soru"}. 
+                const aiPrompt = `Öğrenci sorusu (${question.subject}): ${finalQuestionText || "Görsel soru"}. 
                 Lütfen bu soruyu adım adım, açıklayıcı ve eğitici bir dille çöz. 
                 Cevabı doğrudan verme, önce ipucu ver sonra çözümü anlat. Türkçe kullan.`;
 
@@ -305,23 +331,46 @@ export default function QuestionDetail() {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-card rounded-2xl p-4 border shadow-sm"
+                        className="bg-card rounded-2xl p-5 border shadow-sm h-full"
                     >
-                        <h2 className="font-semibold mb-3 flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-primary" /> Soru
+                        <h2 className="font-semibold mb-4 flex items-center gap-2 text-lg">
+                            <MessageSquare className="w-5 h-5 text-primary" /> Soru İçeriği
                         </h2>
 
                         {question.image_url && (
-                            <div className="mb-4 rounded-xl overflow-hidden border bg-muted">
-                                <img
-                                    src={getPublicUrl(question.image_url) || ""}
-                                    alt="Soru"
-                                    className="w-full h-auto object-contain max-h-[400px]"
-                                />
+                            <div className="space-y-4">
+                                <div className="rounded-xl overflow-hidden border bg-muted/30 group relative">
+                                    <div className="absolute top-2 left-2 z-10">
+                                        <span className="bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-md font-medium uppercase tracking-wider">Orijinal Fotoğraf</span>
+                                    </div>
+                                    <img
+                                        src={getPublicUrl(question.image_url) || ""}
+                                        alt="Soru"
+                                        className="w-full h-auto object-contain max-h-[350px] transition-transform duration-500 group-hover:scale-[1.02]"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <div className="absolute -left-1 top-0 bottom-0 w-1 bg-primary/20 rounded-full" />
+                                    <div className="pl-4 space-y-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+                                            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Dijital Versiyon (AI OCR)</span>
+                                        </div>
+                                        <div className="text-foreground/90 leading-relaxed text-sm prose dark:prose-invert max-w-none">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                            >
+                                                {question.question_text || "*Metin çıkarılamadı*"}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
-                        {question.question_text && (
+                        {!question.image_url && question.question_text && (
                             <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">
                                 {question.question_text}
                             </p>

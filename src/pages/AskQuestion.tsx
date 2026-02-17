@@ -14,7 +14,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { getAIResponse } from "@/lib/ai";
+import { getAIResponse, analyzeQuestionImage } from "@/lib/ai";
 import Tesseract from 'tesseract.js';
 
 export default function AskQuestion() {
@@ -52,30 +52,39 @@ export default function AskQuestion() {
     setIsProcessing(true);
     toast({
       title: "Yazı Okunuyor 📖",
-      description: "Fotoğraftaki metni anlamaya çalışıyorum...",
+      description: "Yapay Zeka sorunuzu analiz ediyor...",
     });
 
     try {
-      const result = await Tesseract.recognize(
-        file,
-        'tur',
-        { logger: m => console.log(m) }
-      );
+      // 1. Dosyayı Base64'e çevir (AI Vision için)
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const base64Image = await base64Promise;
 
-      const text = result.data.text.trim();
-      if (text) {
+      // 2. AI Vision ile OCR yap
+      const text = await analyzeQuestionImage(base64Image);
+
+      if (text && !text.startsWith("HATA:")) {
         setQuestionText(prev => (prev ? prev + "\n" + text : text));
         toast({
           title: "Başarılı ✨",
-          description: "Fotoğraftaki yazı metne çevrildi.",
+          description: "Yapay zeka soruyu başarıyla okudu.",
           duration: 3000,
         });
       } else {
-        toast({
-          title: "Yazı Bulunamadı",
-          description: "Resimde net bir yazı tespit edemedim.",
-          variant: "destructive",
-        });
+        // AI Vision başarısız olursa Tesseract'a düş (Fallback)
+        console.warn("AI Vision failed, falling back to Tesseract...");
+        const result = await Tesseract.recognize(file, 'tur');
+        const fallbackText = result.data.text.trim();
+
+        if (fallbackText) {
+          setQuestionText(prev => (prev ? prev + "\n" + fallbackText : fallbackText));
+        } else {
+          throw new Error("Metin bulunamadı.");
+        }
       }
     } catch (error) {
       console.error("OCR Hatası:", error);
