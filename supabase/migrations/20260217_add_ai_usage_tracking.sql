@@ -1,3 +1,4 @@
+-- Project: OdevGPT
 -- 20260217_add_ai_usage_tracking.sql
 -- Description: Tracks AI token usage and health across all tenants for monitoring and quota management.
 

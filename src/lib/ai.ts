@@ -116,13 +116,25 @@ Görevin: Öğrencilerin sorularını sadece çözmek değil, onlara konuyu öğ
 8. Önemli terimleri ve başlıkları **kalın** yazarak vurgula.
 `;
 
-/**
- * Unified AI Request Handler with Automatic Fallback & Logging
- */
-async function makeAIRequest(messages: { role: string; content: string }[], temperature: number = 0.7) {
-    const primaryProvider = getActiveProvider();
+const MODEL_COSTS: Record<string, { prompt: number, completion: number }> = {
+    "llama-3.3-70b-versatile": { prompt: 0.00059 / 1000, completion: 0.00079 / 1000 }, // Groq tahmini
+    "gemini-1.5-flash": { prompt: 0.000075 / 1000, completion: 0.0003 / 1000 },
+    "gpt-4o": { prompt: 0.0025 / 1000, completion: 0.010 / 1000 },
+    "gpt-4-turbo": { prompt: 0.01 / 1000, completion: 0.03 / 1000 },
+    "gpt-3.5-turbo": { prompt: 0.0005 / 1000, completion: 0.0015 / 1000 }
+};
 
-    // Fallback listesi: seçilen dışındakileri ekle
+/**
+ * Unified AI Request Handler with Automatic Fallback, Logging & Cost Intelligence
+ */
+async function makeAIRequest(
+    messages: { role: string; content: string }[],
+    temperature: number = 0.7,
+    featureName: string = "general_chat"
+) {
+    const primaryProvider = getActiveProvider();
+    const startTime = Date.now();
+
     const fallbackProviders = [
         PROVIDERS["groq-llama3"],
         PROVIDERS["gemini-flash"],
@@ -136,10 +148,8 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
         if (!provider.apiKey) continue;
 
         try {
-            console.log(`AI Request: Attempting with ${provider.label}...`);
+            console.log(`AI Request [${featureName}]: Attempting with ${provider.label}...`);
 
-            // Format content correctly for the API
-            // Some providers might need special handling for vision, but standard OpenAI format is used here.
             const response = await fetch(provider.url, {
                 method: "POST",
                 headers: {
@@ -150,33 +160,39 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
                     model: provider.model,
                     messages: messages,
                     temperature: temperature,
-                    max_tokens: 1000 // Ensure enough tokens for complex tasks
+                    max_tokens: 2000
                 }),
             });
 
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                // Rate limit (429) veya Server Error durumunda bir sonrakini dene
                 if (response.status === 429 || response.status >= 500) {
-                    console.warn(`${provider.label} limit/error (${response.status}). Trying next provider...`);
+                    console.warn(`${provider.label} limit/error (${response.status}). Trying next...`);
                     lastError = data.error?.message || response.statusText;
                     continue;
                 }
                 throw new Error(`AI API Hatası (${provider.label}): ${data.error?.message || response.statusText}`);
             }
 
-            // Başarılı yanıt geldiyse logla ve dön
             const content = data.choices[0].message.content;
             const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+            const latency = Date.now() - startTime;
 
-            // Arkaplanda logla (beklemeye gerek yok)
+            // Cost Calculation
+            const costs = MODEL_COSTS[provider.model] || { prompt: 0, completion: 0 };
+            const totalCost = (usage.prompt_tokens * costs.prompt) + (usage.completion_tokens * costs.completion);
+
+            // Background Logging (Async)
             supabase.from("ai_usage_logs").insert({
                 provider: provider.label,
                 model: provider.model,
                 prompt_tokens: usage.prompt_tokens,
                 completion_tokens: usage.completion_tokens,
                 total_tokens: usage.total_tokens,
+                cost_usd: totalCost,
+                feature_name: featureName,
+                latency_ms: latency,
                 status: 'success'
             }).then(({ error }) => error && console.error("Usage log error:", error));
 
@@ -186,12 +202,12 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
             console.error(`${provider.label} request failed:`, error.message);
             lastError = error.message;
 
-            // Eğer bu son provider ise hatayı fırlat
             if (provider === providersToTry[providersToTry.length - 1]) {
-                // Başarısızlık durumunu logla
                 supabase.from("ai_usage_logs").insert({
                     provider: provider.label,
                     model: provider.model,
+                    feature_name: featureName,
+                    latency_ms: Date.now() - startTime,
                     status: 'failed',
                     error_message: error.message
                 }).then(({ error }) => error && console.error("Usage log error:", error));
@@ -204,11 +220,12 @@ async function makeAIRequest(messages: { role: string; content: string }[], temp
     throw new Error(`AI servislerine ulaşılamıyor. Lütfen API anahtarlarınızı kontrol edin.`);
 }
 
-export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.") {
+
+export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.", featureName: string = "general_chat") {
     return makeAIRequest([
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
-    ], 0.7);
+    ], 0.7, featureName);
 }
 
 /**
@@ -225,7 +242,7 @@ export async function enhanceAnnouncement(content: string) {
     - Metni çok uzatmadan, okunabilirliği yüksek tut.
   `;
 
-    return askAI(`Lütfen şu duyuruyu geliştir: "${content}"`, systemPrompt);
+    return askAI(`Lütfen şu duyuruyu geliştir: "${content}"`, systemPrompt, "announcement_enhancer");
 }
 
 /**
@@ -238,7 +255,7 @@ export async function summarizeForStudents(content: string) {
     Sadece 3 kısa madde ver, her maddenin başına uygun bir emoji koy.
   `;
 
-    return askAI(`Lütfen şu metni öğrenciler için 3 maddede özetle:\n\n${content}`, systemPrompt);
+    return askAI(`Lütfen şu metni öğrenciler için 3 maddede özetle:\n\n${content}`, systemPrompt, "announcement_summary");
 }
 
 /**
@@ -256,7 +273,7 @@ export async function getAIResponse(messages: { role: string; content: string }[
         ...userMsgs
     ];
 
-    return makeAIRequest(unifiedMessages, 0.7);
+    return makeAIRequest(unifiedMessages, 0.7, "homework_solver");
 }
 
 /**
@@ -289,7 +306,7 @@ export async function askSocraticAI(
         ...messages
     ];
 
-    return makeAIRequest(fullMessages, 0.6);
+    return makeAIRequest(fullMessages, 0.6, "socratic_tutor");
 }
 
 /**
@@ -317,7 +334,7 @@ export async function generateWeeklyParentReport(
     İstatistikler: ${JSON.stringify(stats)}
     `;
 
-    return askAI(prompt, systemPrompt);
+    return askAI(prompt, systemPrompt, "weekly_parent_report");
 }
 
 /**
@@ -337,7 +354,7 @@ export async function generateReportHighlights(
     ${JSON.stringify(stats)}
     `;
 
-    const response = await askAI(prompt, systemPrompt);
+    const response = await askAI(prompt, systemPrompt, "report_highlights");
 
     return response
         .split('\n')
@@ -376,5 +393,5 @@ export async function analyzeQuestionImage(imageBase64: string): Promise<string>
 
     // makeAIRequest tipini esnetmemiz gerekecek çünkü normalde string bekliyor.
     // Ancak makeAIRequest içindeki JSON.stringify bunu zaten halledecektir.
-    return makeAIRequest(visionMessages as any, 0.1);
+    return makeAIRequest(visionMessages as any, 0.1, "elite_vision_ocr");
 }

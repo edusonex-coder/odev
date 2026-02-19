@@ -27,6 +27,8 @@ import Leaderboard from "./pages/Leaderboard";
 import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
 import ParentPanel from "./pages/ParentPanel";
+import ExecutiveDashboard from "./components/ExecutiveDashboard";
+
 
 import { TenantProvider } from "./contexts/TenantContext";
 
@@ -109,7 +111,17 @@ const App = () => (
                 <Route index element={<ParentPanel />} />
               </Route>
 
+              <Route
+                path="/executive"
+                element={
+                  <ProtectedRoute requireRole="admin">
+                    <ExecutiveDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="*" element={<NotFound />} />
+
             </Routes>
           </AuthProvider>
         </BrowserRouter>
