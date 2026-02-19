@@ -10,6 +10,9 @@ import { useTenant } from "@/contexts/TenantContext";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Subject = "Genel" | "Matematik" | "Fen Bilimleri" | "Türkçe" | "Sosyal Bilgiler" | "İngilizce";
 
@@ -22,14 +25,13 @@ export default function ChatScreen() {
   const { tenant } = useTenant();
   const [messages, setMessages] = useState<Message[]>([]);
 
-  useEffect(() => {
-    const welcome = tenant?.ai_welcome_message || "Merhaba! 👋 Ben senin kişisel AI Çalışma Koçun. Bugün hangi ders üzerinde beraber çalışalım? İstersen doğrudan soru sorabilirsin, istersen 'Sokratik Mod'u açarak konuyu keşfetmemi sağlayabilirsin.";
-    setMessages([{ role: "assistant", content: welcome }]);
-  }, [tenant]);
+  const { profile } = useAuth();
+  const [isInitializing, setIsInitializing] = useState(true);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSocratic, setIsSocratic] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject>("Genel");
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -37,6 +39,62 @@ export default function ChatScreen() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Load or create session
+  useEffect(() => {
+    async function initChat() {
+      if (!profile?.id) return;
+
+      try {
+        // 1. En son aktif session'ı bul (aynı ders için)
+        const { data: session } = await supabase
+          .from('ai_chat_sessions')
+          .select('id')
+          .eq('student_id', profile.id)
+          .eq('subject', selectedSubject)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (session) {
+          setSessionId(session.id);
+          // 2. Geçmiş mesajları çek
+          const { data: history } = await supabase.rpc('get_session_history', { p_session_id: session.id });
+          if (history && history.length > 0) {
+            setMessages(history);
+          } else {
+            setInitialWelcome();
+          }
+        } else {
+          // Yeni session oluştur
+          const { data: newSession } = await supabase
+            .from('ai_chat_sessions')
+            .insert({
+              student_id: profile.id,
+              tenant_id: profile.tenant_id,
+              subject: selectedSubject
+            })
+            .select()
+            .single();
+
+          if (newSession) setSessionId(newSession.id);
+          setInitialWelcome();
+        }
+      } catch (err) {
+        console.error("Chat init error:", err);
+        setInitialWelcome();
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+
+    initChat();
+  }, [profile, selectedSubject]);
+
+  const setInitialWelcome = () => {
+    const welcome = tenant?.ai_welcome_message || "Merhaba! 👋 Ben senin kişisel AI Çalışma Koçun. Bugün hangi ders üzerinde beraber çalışalım? İstersen doğrudan soru sorabilirsin, istersen 'Sokratik Mod'u açarak konuyu keşfetmemi sağlayabilirsin.";
+    setMessages([{ role: "assistant", content: welcome }]);
   };
 
   useEffect(() => {
@@ -52,8 +110,16 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
-      let responseContent: string;
+      // Background Save: User Message
+      if (sessionId) {
+        supabase.from('ai_chat_messages').insert({
+          session_id: sessionId,
+          role: 'user',
+          content: input
+        }).then(({ error }) => error && console.error("Msg save error:", error));
+      }
 
+      let responseContent: string;
       const history = messages.slice(-10);
 
       if (isSocratic) {
@@ -81,6 +147,18 @@ export default function ChatScreen() {
 
       const aiMessage: Message = { role: "assistant", content: responseContent };
       setMessages(prev => [...prev, aiMessage]);
+
+      // Background Save: AI Message
+      if (sessionId) {
+        supabase.from('ai_chat_messages').insert({
+          session_id: sessionId,
+          role: 'assistant',
+          content: responseContent
+        }).then(({ error }) => error && console.error("AI msg save error:", error));
+
+        // Update session timestamp
+        supabase.from('ai_chat_sessions').update({ updated_at: new Date() }).eq('id', sessionId);
+      }
     } catch (error) {
       toast({
         title: "Hata",
