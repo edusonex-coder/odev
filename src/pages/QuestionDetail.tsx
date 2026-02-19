@@ -47,17 +47,64 @@ export default function QuestionDetail() {
     const autoSolveAttempted = useRef(false);
     const [similarQuestion, setSimilarQuestion] = useState<string | null>(null);
     const [isGeneratingSimilar, setIsGeneratingSimilar] = useState(false);
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
-    // ID her değiştiğinde (yeni soruya geçildiğinde) 'çözüldü' işaretini kaldır
+    // Initialize or Load Question Chat Session
+    useEffect(() => {
+        async function initQuestionChat() {
+            if (!id || !user?.id) return;
+
+            try {
+                // Find session for this specific question
+                const { data: session } = await supabase
+                    .from('ai_chat_sessions')
+                    .select('id')
+                    .eq('student_id', user.id)
+                    .contains('metadata', { question_id: id })
+                    .maybeSingle();
+
+                if (session) {
+                    setSessionId(session.id);
+                    const { data: history } = await supabase.rpc('get_session_history', { p_session_id: session.id });
+                    if (history && history.length > 0) {
+                        setMessages(history);
+                    }
+                } else if (question) {
+                    // Create new session for this question
+                    const { data: newSession } = await supabase
+                        .from('ai_chat_sessions')
+                        .insert({
+                            student_id: user.id,
+                            tenant_id: (user as any).tenant_id || (user as any).app_metadata?.tenant_id,
+                            subject: question.subject,
+                            topic: `Question Study: ${id}`,
+                            metadata: { question_id: id }
+                        })
+                        .select()
+                        .single();
+
+                    if (newSession) setSessionId(newSession.id);
+                }
+            } catch (err) {
+                console.error("Question chat init error:", err);
+            }
+        }
+
+        if (!loading && question) {
+            initQuestionChat();
+        }
+    }, [id, user, loading, question]);
+
+    // 2. ID her değiştiğinde (yeni soruya geçildiğinde) 'çözüldü' işaretini kaldır
     useEffect(() => {
         autoSolveAttempted.current = false;
     }, [id]);
 
+    // 3. Soru Verilerini Çek
     useEffect(() => {
         async function fetchQuestionData() {
             if (!id || !user) return;
             try {
-                // Soruyu çek
                 const { data: qData, error: qError } = await supabase
                     .from("questions")
                     .select("*")
@@ -67,7 +114,6 @@ export default function QuestionDetail() {
                 if (qError) throw qError;
                 setQuestion(qData);
 
-                // Çözümleri çek
                 const { data: sData, error: sError } = await supabase
                     .from("solutions")
                     .select("*")
@@ -91,17 +137,15 @@ export default function QuestionDetail() {
         };
     }, [id, user]);
 
-    // Otomatik Çözümleyici
+    // 4. Otomatik Çözümleyici
     useEffect(() => {
         const autoSolve = async () => {
-            // Guard: Döngüyü engellemek için kontrol
             if (autoSolveAttempted.current || loading || !question || solutions.length > 0 || isAutoSolving) return;
 
-            autoSolveAttempted.current = true; // Kilidi kapat
+            autoSolveAttempted.current = true;
             setIsAutoSolving(true);
 
             try {
-                // 0. Eğer metin yoksa ama resim varsa, önce Vision ile metni çıkar
                 let finalQuestionText = question.question_text || "";
 
                 if (!finalQuestionText && question.image_url) {
@@ -112,12 +156,10 @@ export default function QuestionDetail() {
                             const extractedText = await analyzeQuestionImage(publicUrl);
                             if (extractedText && !extractedText.startsWith("HATA:")) {
                                 finalQuestionText = extractedText;
-                                // Veritabanını güncelle (kalıcı hale getir)
                                 await supabase.from("questions")
                                     .update({ question_text: extractedText })
                                     .eq("id", question.id);
 
-                                // State'i güncelle ki arayüzde de görünsün
                                 setQuestion(prev => prev ? { ...prev, question_text: extractedText } : prev);
                                 toast.success("Metin başarıyla dijitalleştirildi! ✨");
                             }
@@ -133,10 +175,8 @@ export default function QuestionDetail() {
                 Lütfen bu soruyu adım adım, açıklayıcı ve eğitici bir dille çöz. 
                 Cevabı doğrudan verme, önce ipucu ver sonra çözümü anlat. Türkçe kullan.`;
 
-                // 1. Cevabı al
                 const aiResponseText = await getAIResponse([{ role: "user", content: aiPrompt }]);
 
-                // 2. Kaydetmeyi dene
                 const { data: solData, error: insertError } = await supabase.from("solutions").insert({
                     question_id: question.id,
                     solver_type: "ai",
@@ -145,8 +185,7 @@ export default function QuestionDetail() {
                 }).select().single();
 
                 if (insertError) {
-                    console.error("Çözüm kaydedilemedi (RLS veya İzin hatası):", insertError);
-                    // Kaydedilemediyse bile gösterelim (Client-side Fallback)
+                    console.error("Çözüm kaydedilemedi:", insertError);
                     const tempSolution: Solution = {
                         id: "temp-ai-" + Date.now(),
                         solution_text: aiResponseText,
@@ -154,9 +193,7 @@ export default function QuestionDetail() {
                         created_at: new Date().toISOString()
                     };
                     setSolutions([tempSolution]);
-                    // Veritabanına yazılamadı uyarısı kullanıcıyı rahatsız etmemesi için kaldırıldı.
                 } else {
-                    // Başarılı kayıt
                     setSolutions([solData]);
                     await supabase.from("questions").update({ status: "ai_answered" }).eq("id", question.id);
                     toast.success("Çözüm hazır! 🎉");
@@ -207,21 +244,19 @@ export default function QuestionDetail() {
             return;
         }
 
-        window.speechSynthesis.cancel(); // Öncekini durdur
+        window.speechSynthesis.cancel();
 
-        // Markdown ve LaTeX sembollerini temizle (Okurken garip durmasın)
         const cleanText = text
-            .replace(/[*#_`]/g, '') // Markdown
-            .replace(/\$/g, '') // LaTeX dolar işaretleri
-            .replace(/\[.*?\]/g, '') // Köşeli parantez içleri (bazen link vs olur)
+            .replace(/[*#_`]/g, '')
+            .replace(/\$/g, '')
+            .replace(/\[.*?\]/g, '')
             .trim();
 
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "tr-TR";
-        utterance.rate = 0.95; // Hafifçe yavaş, ders anlatır gibi
+        utterance.rate = 0.95;
         utterance.pitch = 1.0;
 
-        // Türkçe sesi bulmaya çalış (Google Türkçe sesi varsa harika olur)
         const voices = window.speechSynthesis.getVoices();
         const trVoice = voices.find(v => v.lang.includes('tr')) || voices.find(v => v.lang.includes('TR'));
         if (trVoice) utterance.voice = trVoice;
@@ -251,6 +286,15 @@ export default function QuestionDetail() {
         setIsThinking(true);
 
         try {
+            // Background Save: User Message
+            if (sessionId) {
+                supabase.from('ai_chat_messages').insert({
+                    session_id: sessionId,
+                    role: 'user',
+                    content: userMsg
+                }).then(({ error }) => error && console.error("Msg save error:", error));
+            }
+
             const response = await askSocraticAI(userMsg, {
                 question: question.question_text || "Bu bir görsel soru.",
                 subject: question.subject,
@@ -258,6 +302,18 @@ export default function QuestionDetail() {
             });
 
             setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+
+            // Background Save: AI Message
+            if (sessionId) {
+                supabase.from('ai_chat_messages').insert({
+                    session_id: sessionId,
+                    role: 'assistant',
+                    content: response
+                }).then(({ error }) => error && console.error("AI msg save error:", error));
+
+                // Update session timestamp
+                supabase.from('ai_chat_sessions').update({ updated_at: new Date() }).eq('id', sessionId);
+            }
 
             // XP Kazandır
             if (user) {
