@@ -19,6 +19,12 @@ const PROVIDERS: Record<string, AIProviderConfig> = {
         model: "llama-3.3-70b-versatile",
         label: "Groq (Llama 3)"
     },
+    "groq-vision": {
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        apiKey: import.meta.env.VITE_GROQ_API_KEY,
+        model: "llama-3.2-11b-vision-preview",
+        label: "Groq (Vision)"
+    },
     "gemini-flash": {
         url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         apiKey: import.meta.env.VITE_GEMINI_API_KEY,
@@ -162,7 +168,21 @@ async function makeAIRequest(
 
     // Low-Priority tasks should use cheapest stable model
     const lowPriorityFeatures = ["announcement_enhancer", "announcement_summary", "general_chat"];
-    if (lowPriorityFeatures.includes(featureName)) {
+    const visionFeatures = ["elite_vision_ocr"];
+
+    if (visionFeatures.includes(featureName)) {
+        // Force Vision Support (Groq Llama 3 does NOT support images yet)
+        if (PROVIDERS["gemini-flash"].apiKey) {
+            primaryProvider = PROVIDERS["gemini-flash"];
+        } else if (PROVIDERS["groq-vision"].apiKey) {
+            primaryProvider = PROVIDERS["groq-vision"];
+        } else if (PROVIDERS["gpt-4o"].apiKey) {
+            primaryProvider = PROVIDERS["gpt-4o"];
+        } else {
+            // No vision-specific model available with its own logic, fallback to anything with a key
+            primaryProvider = getActiveProvider();
+        }
+    } else if (lowPriorityFeatures.includes(featureName)) {
         // Force Gemini Flash or Llama 3 for low priority tasks to save costs
         primaryProvider = PROVIDERS["gemini-flash"].apiKey ? PROVIDERS["gemini-flash"] : PROVIDERS["groq-llama3"];
     }
@@ -178,9 +198,15 @@ async function makeAIRequest(
         identityPrompt += `\n\nÖzel Kurumsal Kimlik: ${personalityPrompt}`;
     }
 
+    // Combine identity prompt with any existing system prompt in messages
+    const existingSystemMsg = messages.find(m => m.role === "system");
+    const combinedSystemPrompt = existingSystemMsg
+        ? `${identityPrompt}\n\nGörev Talimatı: ${existingSystemMsg.content}`
+        : identityPrompt;
+
     const fullMessages = [
-        { role: "system", content: identityPrompt },
-        ...messages
+        { role: "system", content: combinedSystemPrompt },
+        ...messages.filter(m => m.role !== "system")
     ];
 
     const fallbackProviders = [
@@ -244,17 +270,31 @@ async function makeAIRequest(
             const totalCost = (usage.prompt_tokens * costs.prompt) + (usage.completion_tokens * costs.completion);
 
             // Background Logging (Async)
-            supabase.from("ai_usage_logs").insert({
-                provider: provider.label,
-                model: provider.model,
-                prompt_tokens: usage.prompt_tokens,
-                completion_tokens: usage.completion_tokens,
-                total_tokens: usage.total_tokens,
-                cost_usd: totalCost,
-                feature_name: featureName,
-                latency_ms: latency,
-                status: 'success'
-            }).then(({ error }) => error && console.error("Usage log error:", error));
+            (async () => {
+                try {
+                    const { data: userData } = await supabase.auth.getUser();
+
+                    // Check if tenantName is a valid UUID, if not, leave as null (tenant_id requires UUID)
+                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantName || "");
+                    const tenantIdToSave = isUuid ? tenantName : null;
+
+                    await supabase.from("ai_usage_logs").insert({
+                        provider: provider.label,
+                        model: provider.model,
+                        prompt_tokens: usage.prompt_tokens,
+                        completion_tokens: usage.completion_tokens,
+                        total_tokens: usage.total_tokens,
+                        cost_usd: totalCost,
+                        feature_name: featureName,
+                        latency_ms: latency,
+                        status: 'success',
+                        user_id: userData?.user?.id,
+                        tenant_id: tenantIdToSave
+                    });
+                } catch (e) {
+                    console.warn("Usage log background error:", e);
+                }
+            })();
 
             return content;
 

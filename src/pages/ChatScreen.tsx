@@ -127,7 +127,7 @@ export default function ChatScreen() {
           question: input,
           subject: selectedSubject,
           history: history,
-          tenantName: tenant?.name,
+          tenantName: tenant?.id, // ID gönderilmeli
           personalityPrompt: tenant?.ai_personality_prompt
         });
       } else {
@@ -139,7 +139,7 @@ export default function ChatScreen() {
         ];
         responseContent = await getAIResponse(
           contextMessages as any,
-          tenant?.name,
+          tenant?.id, // ID gönderilmeli, Name değil
           tenant?.ai_personality_prompt,
           "general_chat"
         );

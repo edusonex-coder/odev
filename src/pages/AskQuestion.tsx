@@ -90,7 +90,12 @@ export default function AskQuestion() {
         });
       } else {
         // AI Vision başarısız olursa Tesseract'a düş (Fallback)
-        console.warn("AI Vision failed, falling back to Tesseract...");
+        console.warn("AI Vision failed or returned error:", text);
+        toast({
+          title: "AI Okuyamadı",
+          description: "Geleneksel yöntem (OCR) deneniyor...",
+        });
+
         const result = await Tesseract.recognize(file, 'tur');
         const fallbackText = result.data.text.trim();
 
@@ -100,11 +105,11 @@ export default function AskQuestion() {
           throw new Error("Metin bulunamadı.");
         }
       }
-    } catch (error) {
-      console.error("OCR Hatası:", error);
+    } catch (error: any) {
+      console.error("OCR Hatası (Kritik):", error);
       toast({
         title: "Okuma Hatası",
-        description: "Metin okunamadı, lütfen elle yazın.",
+        description: `Metin okunamadı (${error?.message || "Bilinmiyor"}), lütfen elle yazın.`,
         variant: "destructive",
       });
     } finally {
