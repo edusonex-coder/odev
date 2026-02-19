@@ -22,7 +22,7 @@ const PROVIDERS: Record<string, AIProviderConfig> = {
     "groq-vision": {
         url: "https://api.groq.com/openai/v1/chat/completions",
         apiKey: import.meta.env.VITE_GROQ_API_KEY,
-        model: "llama-3.2-11b-vision-preview",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         label: "Groq (Vision)"
     },
     "gemini-flash": {
@@ -234,8 +234,14 @@ async function makeAIRequest(
         if (!p.apiKey) return false;
         if (p.model === primaryProvider.model) return false;
 
-        // Vision tasks require vision models
-        const visionModels = ["gemini-1.5-flash", "gpt-4o", "llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"];
+        // Vision tasks require vision-capable models
+        const visionModels = [
+            "gemini-1.5-flash",
+            "gpt-4o",
+            "llama-3.2-11b-vision-preview",
+            "llama-3.2-90b-vision-preview",
+            "meta-llama/llama-4-scout-17b-16e-instruct"
+        ];
         if (isVisionTask) {
             return visionModels.includes(p.model);
         }
