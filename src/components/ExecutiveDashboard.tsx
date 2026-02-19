@@ -6,12 +6,14 @@ import {
 } from 'recharts';
 import {
     Shield, TrendingUp, DollarSign, Zap, Activity, Users,
-    ChevronRight, AlertCircle, CheckCircle2, LayoutDashboard
+    ChevronRight, AlertCircle, CheckCircle2, LayoutDashboard, GraduationCap, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ExecutiveDashboard = () => {
     const [stats, setStats] = useState<any>(null);
+    const [growth, setGrowth] = useState<any>([]);
+    const [tenants, setTenants] = useState<any>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -20,13 +22,25 @@ const ExecutiveDashboard = () => {
 
     const fetchStats = async () => {
         try {
-            // CEO View'dan verileri çekiyoruz (Daha önce SQL'de tanımladığımız View)
-            const { data, error } = await supabase
+            // 1. AI Financial Dashboard
+            const { data: finData } = await supabase
                 .from('ceo_financial_dashboard')
                 .select('*');
 
-            if (error) throw error;
-            setStats(data);
+            // 2. Growth metrics (ADS/CAMPAIGNS)
+            const { data: growthData } = await supabase
+                .from('ceo_growth_metrics')
+                .select('*');
+
+            // 3. Tenants (School Management)
+            const { data: tenantData } = await supabase
+                .from('tenants')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            setStats(finData);
+            setGrowth(growthData || []);
+            setTenants(tenantData || []);
         } catch (error) {
             console.error('Stats fetch error:', error);
         } finally {
@@ -68,10 +82,10 @@ const ExecutiveDashboard = () => {
             {/* Main Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[
-                    { icon: <DollarSign />, label: 'Günlük Harcama', value: '$12.45', trend: '+5.2%', color: 'indigo' },
-                    { icon: <Zap />, label: 'AI Karar Sayısı', value: '14,204', trend: '+12%', color: 'purple' },
-                    { icon: <TrendingUp />, label: 'Dönüşüm Oranı', value: '%18.2', trend: '+2.1%', color: 'pink' },
-                    { icon: <Users />, label: 'Aktif Kullanıcı', value: '1,200', trend: '+45', color: 'blue' }
+                    { icon: <DollarSign />, label: 'AI Maliyeti', value: `$${stats?.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0).toFixed(2) || '0.00'}`, trend: '+0%', color: 'indigo' },
+                    { icon: <Zap />, label: 'AI İşlem Sayısı', value: stats?.reduce((acc: any, curr: any) => acc + curr.interaction_count, 0).toLocaleString() || '0', trend: '+100%', color: 'purple' },
+                    { icon: <TrendingUp />, label: 'Ort. CAC', value: `$${(growth?.reduce((acc: any, curr: any) => acc + curr.cac, 0) / (growth?.length || 1)).toFixed(2)}`, trend: '-15%', color: 'pink' },
+                    { icon: <Users />, label: 'Top. Dönüşüm', value: growth?.reduce((acc: any, curr: any) => acc + curr.total_conversions, 0).toLocaleString() || '0', trend: '+45', color: 'blue' }
                 ].map((item, idx) => (
                     <motion.div
                         key={idx}
@@ -83,10 +97,10 @@ const ExecutiveDashboard = () => {
                         <div className={`p-3 bg-${item.color}-500/10 text-${item.color}-400 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform`}>
                             {React.cloneElement(item.icon as React.ReactElement, { className: 'w-6 h-6' })}
                         </div>
-                        <p className="text-slate-500 text-sm font-medium">{item.label}</p>
+                        <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{item.label}</p>
                         <div className="flex items-end gap-3 mt-2">
-                            <h2 className="text-2xl font-bold font-mono">{item.value}</h2>
-                            <span className={`text-xs font-bold mb-1 px-1.5 py-0.5 rounded ${item.trend.startsWith('+') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            <h2 className="text-2xl font-bold font-mono text-white">{item.value}</h2>
+                            <span className={`text-[10px] font-bold mb-1 px-1.5 py-0.5 rounded-full ${item.trend.startsWith('+') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                                 {item.trend}
                             </span>
                         </div>
@@ -96,33 +110,32 @@ const ExecutiveDashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Cost Analysis Chart */}
-                <div className="lg:col-span-2 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="text-xl font-bold flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-indigo-400" /> Yapay Zeka Harcama Analizi
-                        </h3>
-                        <select className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-sm outline-none">
-                            <option>Son 7 Gün</option>
-                            <option>Son 30 Gün</option>
-                        </select>
+                <div className="lg:col-span-2 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                        <DollarSign className="w-32 h-32 text-indigo-500" />
                     </div>
-                    <div className="h-[300px] w-full">
+                    <div className="flex justify-between items-center mb-8 relative z-10">
+                        <h3 className="text-xl font-bold flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-indigo-400" /> AI Maliyet & Performans
+                        </h3>
+                    </div>
+                    <div className="h-[300px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={stats || []}>
                                 <defs>
                                     <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis dataKey="feature_name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
+                                <XAxis dataKey="feature_name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => val.length > 10 ? val.substring(0, 10) + '...' : val} />
+                                <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                    itemStyle={{ color: '#6366f1' }}
+                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                                    itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
                                 />
-                                <Area type="monotone" dataKey="total_cost_usd" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorCost)" />
+                                <Area type="monotone" dataKey="total_cost_usd" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorCost)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -131,35 +144,108 @@ const ExecutiveDashboard = () => {
                 {/* AI Agent Status */}
                 <div className="backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10">
                     <h3 className="text-xl font-bold mb-8 flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Ajan Operasyon Durumu
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Operasyonel Durum
                     </h3>
                     <div className="space-y-6">
                         {[
                             { name: 'CMO (Growth)', status: 'Çalışıyor', health: 98, color: 'indigo' },
                             { name: 'ADS Commander', status: 'Optimize Ediliyor', health: 92, color: 'purple' },
                             { name: 'CFO (Finance)', status: 'Aktif', health: 100, color: 'emerald' },
-                            { name: 'CS AI (L1 Support)', status: 'Hazır', health: 95, color: 'blue' },
-                            { name: 'CTO (DevOps)', status: 'Sistem Yükleniyor', health: 88, color: 'amber' }
+                            { name: 'CTO (DevOps)', status: 'Yükleniyor', health: 88, color: 'amber' }
                         ].map((agent, idx) => (
                             <div key={idx} className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="font-medium">{agent.name}</span>
-                                    <span className="text-xs text-slate-500">{agent.status}</span>
+                                    <span className="font-semibold text-slate-300">{agent.name}</span>
+                                    <span className="text-[10px] text-slate-500 font-mono">{agent.status}</span>
                                 </div>
                                 <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${agent.health}%` }}
                                         transition={{ duration: 1, delay: idx * 0.1 }}
-                                        className={`h-full bg-${agent.color}-500 shadow-[0_0_10px_rgba(var(--tw-color-${agent.color}-500),0.5)]`}
+                                        className={`h-full bg-${agent.color}-500 rounded-full`}
                                     />
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <button className="w-full mt-10 py-3 bg-indigo-500 hover:bg-indigo-600 transition-colors rounded-xl font-bold flex items-center justify-center gap-2 group">
-                        Tüm Organizasyonu Denetle <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
+                </div>
+
+                {/* Growth Analysis Chart */}
+                <div className="lg:col-span-3 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 mt-8">
+                    <h3 className="text-xl font-bold mb-8 flex items-center gap-2 text-indigo-300">
+                        <Users className="w-5 h-5" /> Pazarlama & Büyüme (CMO Insights)
+                    </h3>
+                    <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={growth || []}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
+                                <XAxis dataKey="platform" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                />
+                                <Bar dataKey="total_conversions" name="Dönüşüm" fill="#818cf8" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="cac" name="CAC ($)" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* School & Tenant Management */}
+                <div className="lg:col-span-3 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 mt-8">
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className="text-xl font-bold flex items-center gap-2 text-emerald-400">
+                            <GraduationCap className="w-5 h-5" /> B2B Okul & Kurum Yönetimi
+                        </h3>
+                        <button className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                            Yeni Kurum Ekle <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-white/5 text-slate-500 text-xs uppercase tracking-widest">
+                                    <th className="pb-4 font-semibold">Kurum Adı</th>
+                                    <th className="pb-4 font-semibold">Slug / Domain</th>
+                                    <th className="pb-4 font-semibold">AI Kimlik</th>
+                                    <th className="pb-4 font-semibold">Durum</th>
+                                    <th className="pb-4 font-semibold text-right">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-sm">
+                                {tenants.map((t: any) => (
+                                    <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                                        <td className="py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
+                                                    {t.logo_url ? <img src={t.logo_url} className="w-5 h-5" /> : <GraduationCap className="w-4 h-4 text-slate-500" />}
+                                                </div>
+                                                <span className="font-bold text-slate-200">{t.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 font-mono text-xs text-slate-400">
+                                            {t.slug} • {t.domain || '-'}
+                                        </td>
+                                        <td className="py-4">
+                                            <div className="max-w-[200px] truncate text-xs text-slate-500 italic">
+                                                {t.ai_personality_prompt || 'Varsayılan OdevGPT'}
+                                            </div>
+                                        </td>
+                                        <td className="py-4">
+                                            <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">AKTİF</span>
+                                        </td>
+                                        <td className="py-4 text-right">
+                                            <button className="p-2 text-slate-500 hover:text-white transition-colors">
+                                                <Settings className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

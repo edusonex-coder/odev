@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Sparkles, Mail, Lock, User, GraduationCap, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import SEO from "@/components/SEO";
 
 export default function Signup() {
     const { tenant } = useTenant();
+    const location = useLocation();
+    const query = new URLSearchParams(location.search);
+    const refCode = query.get('ref');
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [fullName, setFullName] = useState("");
@@ -40,6 +44,18 @@ export default function Signup() {
 
         try {
             await signUp(email, password, fullName, role, tenant?.id);
+
+            // Handle Referral if code exists
+            if (refCode) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.rpc('process_referral', {
+                        p_user_id: user.id,
+                        p_code: refCode
+                    });
+                }
+            }
+
             toast({
                 title: "Hoş geldiniz! 🎉",
                 description: "Hesabınız başarıyla oluşturuldu.",

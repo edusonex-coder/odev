@@ -27,6 +27,7 @@ import Leaderboard from "./pages/Leaderboard";
 import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
 import ParentPanel from "./pages/ParentPanel";
+import Referral from "./pages/Referral";
 import ExecutiveDashboard from "./components/ExecutiveDashboard";
 
 
@@ -64,6 +65,7 @@ const App = () => (
                 <Route path="question/:id" element={<QuestionDetail />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} /> {/* Settings Route */}
+                <Route path="referral" element={<Referral />} />
                 <Route path="premium" element={<Premium />} />
                 <Route path="upgrade" element={<Premium />} />
                 <Route

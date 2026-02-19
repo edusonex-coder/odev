@@ -130,10 +130,35 @@ const MODEL_COSTS: Record<string, { prompt: number, completion: number }> = {
 async function makeAIRequest(
     messages: { role: string; content: string }[],
     temperature: number = 0.7,
-    featureName: string = "general_chat"
+    featureName: string = "general_chat",
+    tenantName?: string,
+    personalityPrompt?: string
 ) {
-    const primaryProvider = getActiveProvider();
+    // 1. Intelligence Level Routing (Model Router)
+    let primaryProvider = getActiveProvider();
+
+    // Low-Priority tasks should use cheapest stable model
+    const lowPriorityFeatures = ["announcement_enhancer", "announcement_summary", "general_chat"];
+    if (lowPriorityFeatures.includes(featureName)) {
+        // Force Gemini Flash or Llama 3 for low priority tasks to save costs
+        primaryProvider = PROVIDERS["gemini-flash"].apiKey ? PROVIDERS["gemini-flash"] : PROVIDERS["groq-llama3"];
+    }
+
     const startTime = Date.now();
+
+    // Tenant-Specific Identity Injection
+    let identityPrompt = tenantName
+        ? `Sen şu an ${tenantName} kurumunun resmi eğitim asistanısın. Cevaplarında bu kurumun bir parçası olduğunu hissettir ve kurumun etik değerlerine uygun davran.`
+        : "Sen Edusonex ekosisteminin zeki bir eğitim asistanısın.";
+
+    if (personalityPrompt) {
+        identityPrompt += `\n\nÖzel Kurumsal Kimlik: ${personalityPrompt}`;
+    }
+
+    const fullMessages = [
+        { role: "system", content: identityPrompt },
+        ...messages
+    ];
 
     const fallbackProviders = [
         PROVIDERS["groq-llama3"],
@@ -148,7 +173,7 @@ async function makeAIRequest(
         if (!provider.apiKey) continue;
 
         try {
-            console.log(`AI Request [${featureName}]: Attempting with ${provider.label}...`);
+            console.log(`AI Request [${featureName}${tenantName ? ` - ${tenantName}` : ''}]: Attempting with ${provider.label}...`);
 
             const response = await fetch(provider.url, {
                 method: "POST",
@@ -158,7 +183,7 @@ async function makeAIRequest(
                 },
                 body: JSON.stringify({
                     model: provider.model,
-                    messages: messages,
+                    messages: fullMessages,
                     temperature: temperature,
                     max_tokens: 2000
                 }),
@@ -221,11 +246,16 @@ async function makeAIRequest(
 }
 
 
-export async function askAI(prompt: string, systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.", featureName: string = "general_chat") {
+export async function askAI(
+    prompt: string,
+    systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.",
+    featureName: string = "general_chat",
+    tenantName?: string
+) {
     return makeAIRequest([
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
-    ], 0.7, featureName);
+    ], 0.7, featureName, tenantName);
 }
 
 /**
@@ -261,19 +291,22 @@ export async function summarizeForStudents(content: string) {
 /**
  * compatibility wrapper for old code
  */
-export async function getAIResponse(messages: { role: string; content: string }[]) {
+export async function getAIResponse(
+    messages: { role: string; content: string }[],
+    tenantIdOrName?: string,
+    personalityPrompt?: string,
+    featureName: string = "homework_solver"
+) {
     // Mesaj formatını unified yapıya uydur
-    // Eğer messages içinde system prompt varsa ayrıştır, yoksa default ekle
     const systemMsg = messages.find(m => m.role === 'system')?.content || TEACHER_PROMPT;
     const userMsgs = messages.filter(m => m.role !== 'system');
 
-    // Geçmişi koru
     const unifiedMessages = [
         { role: "system", content: systemMsg },
         ...userMsgs
     ];
 
-    return makeAIRequest(unifiedMessages, 0.7, "homework_solver");
+    return makeAIRequest(unifiedMessages, 0.7, featureName, tenantIdOrName, personalityPrompt);
 }
 
 /**
@@ -281,7 +314,7 @@ export async function getAIResponse(messages: { role: string; content: string }[
  */
 export async function askSocraticAI(
     userMessage: string,
-    context: { question: string, subject: string, history?: { role: string, content: string }[] }
+    context: { question: string, subject: string, history?: { role: string, content: string }[], tenantName?: string, personalityPrompt?: string }
 ) {
     const systemPrompt = `
     Sen OdevGPT'nin Sokratik Eğitmenisin. 
@@ -306,7 +339,7 @@ export async function askSocraticAI(
         ...messages
     ];
 
-    return makeAIRequest(fullMessages, 0.6, "socratic_tutor");
+    return makeAIRequest(fullMessages, 0.6, "socratic_tutor", context.tenantName, context.personalityPrompt);
 }
 
 /**
@@ -366,7 +399,7 @@ export async function generateReportHighlights(
  * Gelişmiş Vision OCR: Resimdeki soruyu okur ve tertemiz metne çevirir.
  * Tesseract yerine Vision modellerini (Gemini Flash, GPT-4o) kullanır.
  */
-export async function analyzeQuestionImage(imageBase64: string): Promise<string> {
+export async function analyzeQuestionImage(imageBase64: string, tenantIdOrName?: string): Promise<string> {
     const systemPrompt = `
     Sen OdevGPT Elite OCR Mühendisisin. 
     Görevin: Resimdeki soruyu dijital dünyaya MÜKEMMEL bir şekilde aktarmak.
@@ -393,5 +426,5 @@ export async function analyzeQuestionImage(imageBase64: string): Promise<string>
 
     // makeAIRequest tipini esnetmemiz gerekecek çünkü normalde string bekliyor.
     // Ancak makeAIRequest içindeki JSON.stringify bunu zaten halledecektir.
-    return makeAIRequest(visionMessages as any, 0.1, "elite_vision_ocr");
+    return makeAIRequest(visionMessages as any, 0.1, "elite_vision_ocr", tenantIdOrName);
 }

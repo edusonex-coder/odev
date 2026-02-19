@@ -21,6 +21,8 @@ interface TenantConfig {
     custom_video_url?: string;
     custom_podcast_url?: string;
     support_email?: string;
+    ai_personality_prompt?: string;
+    ai_welcome_message?: string;
 }
 
 interface TenantContextType {

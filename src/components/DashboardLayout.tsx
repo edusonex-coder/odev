@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { Home, Camera, Clock, User, Sparkles, LogOut, Settings, Crown, Shield } from "lucide-react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Camera, Clock, User, Sparkles, LogOut, Settings, Crown, Shield, LayoutDashboard, Users, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -19,6 +19,7 @@ export default function DashboardLayout() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
   const { tenant } = useTenant();
+  const navigate = useNavigate();
 
   // Role based navigation items
   const getNavItems = () => {
@@ -43,8 +44,10 @@ export default function DashboardLayout() {
     // Default: Student items
     return [
       { icon: Home, label: "Anasayfa", path: "/dashboard" },
+      { icon: Trophy, label: "Sıralama", path: "/dashboard/leaderboard" },
       { icon: Clock, label: "Geçmişim", path: "/dashboard/history" },
       { icon: Camera, label: "Soru Sor", path: "/dashboard/ask", accent: true },
+      { icon: Users, label: "Davet Et", path: "/dashboard/referral" },
       { icon: User, label: "Profil", path: "/dashboard/profile" },
     ];
   };
@@ -144,6 +147,10 @@ export default function DashboardLayout() {
                 {profile?.role === 'admin' && (
                   <>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/executive')} className="cursor-pointer text-indigo-600 font-bold focus:text-indigo-700">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>Executive Dashboard</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/dashboard/admin" className="cursor-pointer text-destructive font-bold focus:text-destructive">
                         <Shield className="mr-2 h-4 w-4" />

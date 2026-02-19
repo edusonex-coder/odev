@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getAIResponse, askSocraticAI } from "@/lib/ai";
+import { useTenant } from "@/contexts/TenantContext";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +19,13 @@ interface Message {
 }
 
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Merhaba! 👋 Ben senin kişisel AI Çalışma Koçun. Bugün hangi ders üzerinde beraber çalışalım? İstersen doğrudan soru sorabilirsin, istersen 'Sokratik Mod'u açarak konuyu keşfetmemi sağlayabilirsin." }
-  ]);
+  const { tenant } = useTenant();
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    const welcome = tenant?.ai_welcome_message || "Merhaba! 👋 Ben senin kişisel AI Çalışma Koçun. Bugün hangi ders üzerinde beraber çalışalım? İstersen doğrudan soru sorabilirsin, istersen 'Sokratik Mod'u açarak konuyu keşfetmemi sağlayabilirsin.";
+    setMessages([{ role: "assistant", content: welcome }]);
+  }, [tenant]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSocratic, setIsSocratic] = useState(false);
@@ -55,7 +60,9 @@ export default function ChatScreen() {
         responseContent = await askSocraticAI(input, {
           question: input,
           subject: selectedSubject,
-          history: history
+          history: history,
+          tenantName: tenant?.name,
+          personalityPrompt: tenant?.ai_personality_prompt
         });
       } else {
         const systemPrompt = `Sen OdevGPT'nin uzman ${selectedSubject} öğretmenisin. Öğrenciye yardımcı ol, motive et ve net açıklamalar yap.`;
@@ -64,7 +71,12 @@ export default function ChatScreen() {
           ...history,
           userMessage
         ];
-        responseContent = await getAIResponse(contextMessages as any);
+        responseContent = await getAIResponse(
+          contextMessages as any,
+          tenant?.name,
+          tenant?.ai_personality_prompt,
+          "general_chat"
+        );
       }
 
       const aiMessage: Message = { role: "assistant", content: responseContent };

@@ -24,6 +24,8 @@ interface Profile {
     };
     tenant_id: string | null;
     is_super_admin: boolean;
+    referral_code: string | null;
+    referred_by_code: string | null;
 }
 
 interface AuthContextType {

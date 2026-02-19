@@ -58,9 +58,19 @@ const testimonials = [
 ];
 
 import { useTenant } from "@/contexts/TenantContext";
+import { useLocation } from "react-router-dom";
 
 export default function LandingPage() {
   const { tenant } = useTenant();
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const variant = query.get('v'); // A/B Test Variant (e.g. ?v=solve vs ?v=learn)
+
+  const getBTitle = () => {
+    if (variant === 'solve') return "Ödevin mi var? Fotoğrafını çek, anında çözülsün.";
+    if (variant === 'learn') return "Sadece çözme, konuyu kökten öğren. AI Hocan yanında.";
+    return "Ödevin mi var? Fotoğrafını çek, anında adım adım öğren.";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,9 +192,15 @@ export default function LandingPage() {
                   MEB Müfredatına %100 Uyumlu
                 </motion.div>
                 <motion.h1 custom={1} variants={fadeInUp} className="text-4xl md:text-5xl lg:text-7xl font-black leading-tight mb-6 text-balance">
-                  Ödevin mi var?{" "}
-                  <span className="gradient-text bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-accent animate-gradient-text">Fotoğrafını çek,</span>{" "}
-                  anında adım adım öğren.
+                  {variant ? (
+                    getBTitle()
+                  ) : (
+                    <>
+                      Ödevin mi var?{" "}
+                      <span className="gradient-text bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-accent animate-gradient-text">Fotoğrafını çek,</span>{" "}
+                      anında adım adım öğren.
+                    </>
+                  )}
                 </motion.h1>
                 <motion.p custom={2} variants={fadeInUp} className="text-lg text-muted-foreground mb-8 max-w-lg mx-auto md:mx-0">
                   AI destekli akıllı eğitim asistanı ile sorularını çöz, anlamadığın yerde gerçek öğretmenlerden destek al.

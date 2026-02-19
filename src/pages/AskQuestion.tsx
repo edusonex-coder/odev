@@ -28,7 +28,7 @@ export default function AskQuestion() {
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   // Taslağı Yerel Depolamadan Yükle
@@ -79,7 +79,7 @@ export default function AskQuestion() {
       const base64Image = await base64Promise;
 
       // 2. AI Vision ile OCR yap
-      const text = await analyzeQuestionImage(base64Image);
+      const text = await analyzeQuestionImage(base64Image, profile?.tenant_id || undefined);
 
       if (text && !text.startsWith("HATA:")) {
         setQuestionText(prev => (prev ? prev + "\n" + text : text));
@@ -265,7 +265,11 @@ export default function AskQuestion() {
           Lütfen bu soruyu adım adım, açıklayıcı ve eğitici bir dille çöz. 
           Cevabı doğrudan verme, önce ipucu ver sonra çözümü anlat. Türkçe kullan.`;
 
-          const aiResponseText = await getAIResponse([{ role: "user", content: aiPrompt }]);
+          const aiResponseText = await getAIResponse(
+            [{ role: "user", content: aiPrompt }],
+            profile?.tenant_id || undefined,
+            undefined, // no personality prompt override here
+          );
 
           // Çözümü kaydet
           const { error: insertError } = await supabase.from("solutions").insert({

@@ -17,13 +17,29 @@ WITH checks AS (
         ('xp_logs'), 
         ('notifications'),
         ('assignments'),
-        ('submissions'),
-        ('blogs')
+        ('assignment_submissions'),
+        ('blogs'),
+        ('ai_usage_logs'),
+        ('ai_knowledge_graph'),
+        ('marketing_campaigns'),
+        ('tenants')
     ) as t(name)
     
     UNION ALL
     
-    -- 2. Fonksiyon Kontrolleri (RPC)
+    -- 2. View Kontrolleri (CEO Dashboard)
+    SELECT 'View', name,
+           (CASE WHEN EXISTS (SELECT FROM information_schema.views WHERE table_name = name AND table_schema = 'public') THEN '✅ Mevcut' ELSE '❌ EKSIK' END)
+    FROM (VALUES 
+        ('ceo_financial_dashboard'), 
+        ('ceo_growth_metrics'),
+        ('ai_usage_summary'),
+        ('holding_performance_summary')
+    ) as t(name)
+    
+    UNION ALL
+
+    -- 3. Fonksiyon Kontrolleri (RPC)
     SELECT 'Fonksiyon', name,
            (CASE WHEN EXISTS (SELECT FROM pg_proc WHERE proname = name) THEN '✅ Mevcut' ELSE '❌ EKSIK' END)
     FROM (VALUES 
@@ -36,30 +52,24 @@ WITH checks AS (
     
     UNION ALL
     
-    -- 3. RLS (Güvenlik) Kontrolleri
+    -- 4. RLS (Güvenlik) Kontrolleri
     SELECT 'Guvenlik (RLS)', tablename,
            (CASE WHEN rowsecurity = true THEN '🔒 Aktif' ELSE '⚠️ PASIF (Risk!)' END)
     FROM pg_tables 
     WHERE schemaname = 'public' AND tablename IN (
         'profiles', 'questions', 'solutions', 
         'student_parent_relations', 'parent_reports', 
-        'assignments', 'submissions', 'blogs'
+        'assignments', 'assignment_submissions', 'blogs', 
+        'ai_usage_logs', 'tenants', 'ai_knowledge_graph', 'marketing_campaigns'
     )
     
     UNION ALL
     
-    -- 4. Veri Tutarlılığı (Gecersiz status kontrolü)
-    SELECT 'Veri Durumu', 'Solved Statusu',
-           (CASE WHEN (SELECT COUNT(*) FROM questions WHERE status = 'solved') > 0 
-            THEN '⚠️ ' || (SELECT COUNT(*) FROM questions WHERE status = 'solved') || ' hatali kayit var!' 
-            ELSE '✅ Temiz' END)
-            
-    UNION ALL
-    
-    -- 5. Kritik Kolon Kontrolleri
-    SELECT 'Kolon Verisi', 'Profiles Yapisi',
-           (CASE WHEN EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'parent_access_code') 
-            THEN '✅ Eksiksiz' ELSE '❌ parent_access_code EKSIK!' END)
+    -- 5. Veri Tutarlılığı (CEO Analiz)
+    SELECT 'Finansal Veri', 'AI Cost Log',
+           (CASE WHEN (SELECT COUNT(*) FROM ai_usage_logs WHERE cost_usd > 0) > 0 
+            THEN '✅ Maliyet Verisi Mevcut' 
+            ELSE '⚠️ Henüz Maliyet Verisi Yok (Normal: Henüz AI talebi yapılmadı)' END)
 )
 SELECT * FROM checks
 ORDER BY tip DESC, bilesen ASC;
