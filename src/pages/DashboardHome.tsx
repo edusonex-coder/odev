@@ -20,7 +20,8 @@ import {
   LogOut,
   Wand2,
   Megaphone,
-  Bell
+  Bell,
+  Users
 } from "lucide-react";
 import SmartReminders from "@/components/SmartReminders";
 import { Button } from "@/components/ui/button";
