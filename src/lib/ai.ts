@@ -171,7 +171,8 @@ async function makeAIRequest(
     const visionFeatures = ["elite_vision_ocr"];
 
     if (visionFeatures.includes(featureName)) {
-        // Force Vision Support (Groq Llama 3 does NOT support images yet)
+        console.log(`[AI ROUTING] Vision Task Detected (${featureName}). Forcing vision model...`);
+        // Force Vision Support
         if (PROVIDERS["gemini-flash"].apiKey) {
             primaryProvider = PROVIDERS["gemini-flash"];
         } else if (PROVIDERS["groq-vision"].apiKey) {
@@ -179,8 +180,8 @@ async function makeAIRequest(
         } else if (PROVIDERS["gpt-4o"].apiKey) {
             primaryProvider = PROVIDERS["gpt-4o"];
         } else {
-            // No vision-specific model available with its own logic, fallback to anything with a key
-            primaryProvider = getActiveProvider();
+            console.error("[AI ROUTING] CRITICAL: No vision models have valid API keys!");
+            throw new Error("Görsel okuma için gerekli yapay zeka anahtarı bulunamadı (Gemini veya Groq)!");
         }
     } else if (lowPriorityFeatures.includes(featureName)) {
         // Force Gemini Flash or Llama 3 for low priority tasks to save costs
@@ -204,16 +205,43 @@ async function makeAIRequest(
         ? `${identityPrompt}\n\nGörev Talimatı: ${existingSystemMsg.content}`
         : identityPrompt;
 
-    const fullMessages = [
-        { role: "system", content: combinedSystemPrompt },
-        ...messages.filter(m => m.role !== "system")
-    ];
+    const isVisionTask = featureName === "elite_vision_ocr" || (featureName === "homework_solver" && messages.some(m => Array.isArray(m.content)));
+
+    // Unified prompt structure
+    const fullMessages = [...messages.filter(m => m.role !== "system")];
+    if (isVisionTask && primaryProvider.label.includes("Groq")) {
+        // Groq Vision models work better when instructions are in the user message
+        const userMsg = fullMessages.find(m => m.role === "user");
+        if (userMsg && Array.isArray(userMsg.content)) {
+            const textPart = userMsg.content.find((c: any) => c.type === "text");
+            if (textPart) {
+                textPart.text = `${combinedSystemPrompt}\n\n${textPart.text}`;
+            }
+        } else if (userMsg && typeof userMsg.content === 'string') {
+            userMsg.content = `${combinedSystemPrompt}\n\n${userMsg.content}`;
+        }
+    } else {
+        // Standard system message injection
+        fullMessages.unshift({ role: "system", content: combinedSystemPrompt });
+    }
 
     const fallbackProviders = [
-        PROVIDERS["groq-llama3"],
         PROVIDERS["gemini-flash"],
-        PROVIDERS["gpt-4o"]
-    ].filter(p => p.model !== primaryProvider.model && p.apiKey);
+        PROVIDERS["groq-vision"],
+        PROVIDERS["gpt-4o"],
+        PROVIDERS["groq-llama3"]
+    ].filter(p => {
+        if (!p.apiKey) return false;
+        if (p.model === primaryProvider.model) return false;
+
+        // Vision tasks require vision models
+        const visionModels = ["gemini-1.5-flash", "gpt-4o", "llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"];
+        if (isVisionTask) {
+            return visionModels.includes(p.model);
+        }
+
+        return true;
+    });
 
     const providersToTry = [primaryProvider, ...fallbackProviders];
     let lastError = null;
