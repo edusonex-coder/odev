@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { getAIResponse, analyzeQuestionImage } from "@/lib/ai";
 import Tesseract from 'tesseract.js';
+import { compressImage } from "@/lib/imageUtils";
 
 export default function AskQuestion() {
   const [questionText, setQuestionText] = useState("");
@@ -117,25 +118,25 @@ export default function AskQuestion() {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "Dosya çok büyük",
-          description: "Lütfen 5MB'dan küçük bir resim seçin.",
-          variant: "destructive",
-        });
-        return;
+      setIsProcessing(true);
+      try {
+        const compressedFile = await compressImage(file);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImage(reader.result as string);
+          setImageFile(compressedFile);
+          // Otomatik OCR başlat
+          processImageOCR(compressedFile);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (err) {
+        console.error("Image processing error:", err);
+        setIsProcessing(false);
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-        setImageFile(file);
-        // Otomatik OCR başlat
-        processImageOCR(file);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -171,14 +172,15 @@ export default function AskQuestion() {
         const dataUrl = canvas.toDataURL("image/jpeg");
         setImage(dataUrl);
 
-        // DataURL'i dosyaya çevir
+        // DataURL'i dosyaya çevir ve SIKIŞTIR
         fetch(dataUrl)
           .then(res => res.blob())
-          .then(blob => {
+          .then(async blob => {
             const file = new File([blob], "camera-photo.jpg", { type: "image/jpeg" });
-            setImageFile(file);
+            const compressedFile = await compressImage(file);
+            setImageFile(compressedFile);
             // Otomatik OCR başlat
-            processImageOCR(file);
+            processImageOCR(compressedFile);
           });
 
         stopCamera();
