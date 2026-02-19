@@ -327,6 +327,10 @@ export default function Leaderboard() {
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="p-1 bg-white/20 rounded-md mt-1 font-bold text-xs">+250</div>
+                            <p className="text-sm">Arkadaşını davet et, ikiniz de kazanın.</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="p-1 bg-white/20 rounded-md mt-1 font-bold text-xs">+250</div>
                             <p className="text-sm">Öğretmenden tam not al ve sıralamada zıpla.</p>
                         </div>
                     </CardContent>

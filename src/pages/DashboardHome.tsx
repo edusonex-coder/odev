@@ -767,6 +767,19 @@ export default function DashboardHome() {
             </CardFooter>
           </Card>
 
+          <div className="p-6 rounded-3xl bg-indigo-600 text-white shadow-xl relative overflow-hidden group cursor-pointer" onClick={() => navigate('/dashboard/referral')}>
+            <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-110 transition-transform">
+              <Users className="w-16 h-16" />
+            </div>
+            <div className="relative z-10">
+              <h3 className="font-black text-xl mb-1 flex items-center gap-2">
+                Hediye XP Kazan! 🎁
+              </h3>
+              <p className="text-xs font-medium opacity-90 mb-4">Arkadaşını davet et, ikiniz de 250 XP kazanın. Hemen başla!</p>
+              <Button size="sm" className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-bold border-0">Davet Linkini Al</Button>
+            </div>
+          </div>
+
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg font-bold flex items-center gap-2">

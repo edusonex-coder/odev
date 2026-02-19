@@ -6,17 +6,20 @@
 ALTER TABLE public.ai_usage_logs 
     ADD COLUMN IF NOT EXISTS cost_usd DECIMAL(12, 10) DEFAULT 0.0,
     ADD COLUMN IF NOT EXISTS feature_name TEXT,
-    ADD COLUMN IF NOT EXISTS latency_ms INTEGER;
+    ADD COLUMN IF NOT EXISTS latency_ms INTEGER,
+    ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'success',
+    ADD COLUMN IF NOT EXISTS error_message TEXT;
 
 -- 2. Create Central Knowledge Graph for Cross-Product reuse (RAG)
 CREATE TABLE IF NOT EXISTS public.ai_knowledge_graph (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
     category TEXT NOT NULL, -- 'educational', 'business', 'legal', etc.
-    source_product TEXT NOT NULL, -- 'odevgpt', 'sinav', 'crm', etc.
+    source_product TEXT NOT NULL DEFAULT 'odevgpt', -- 'odevgpt', 'sinav', 'crm', etc.
     content_text TEXT NOT NULL,
+    ai_response TEXT, -- The cached AI response
     metadata JSONB DEFAULT '{}'::jsonb,
-    embedding VECTOR(1536), -- Optional: if using pgvector, otherwise text for now
+    embedding VECTOR(1536), -- Optional: if using pgvector, yoksa text arama
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -26,6 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_category ON public.ai_knowledge_graph(c
 CREATE INDEX IF NOT EXISTS idx_knowledge_product ON public.ai_knowledge_graph(source_product);
 
 -- 3. Create AI Cost Dashboard View
+DROP VIEW IF EXISTS public.ceo_financial_dashboard CASCADE;
 CREATE OR REPLACE VIEW public.ceo_financial_dashboard AS
 SELECT 
     tenant_id,

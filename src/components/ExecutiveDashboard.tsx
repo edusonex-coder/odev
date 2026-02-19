@@ -82,9 +82,9 @@ const ExecutiveDashboard = () => {
             {/* Main Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[
-                    { icon: <DollarSign />, label: 'AI Maliyeti', value: `$${stats?.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0).toFixed(2) || '0.00'}`, trend: '+0%', color: 'indigo' },
-                    { icon: <Zap />, label: 'AI İşlem Sayısı', value: stats?.reduce((acc: any, curr: any) => acc + curr.interaction_count, 0).toLocaleString() || '0', trend: '+100%', color: 'purple' },
-                    { icon: <TrendingUp />, label: 'Ort. CAC', value: `$${(growth?.reduce((acc: any, curr: any) => acc + curr.cac, 0) / (growth?.length || 1)).toFixed(2)}`, trend: '-15%', color: 'pink' },
+                    { icon: <DollarSign />, label: 'Top. Gelir', value: `$${stats?.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0).toFixed(2) || '0.00'}`, trend: '+25%', color: 'emerald' },
+                    { icon: <Activity />, label: 'Brüt Kar (Margin)', value: `%${stats?.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0) > 0 ? (100 * (1 - (stats?.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0) / stats?.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0)))).toFixed(1) : '0'}`, trend: 'Sağlıklı', color: 'indigo' },
+                    { icon: <Zap />, label: 'AI İşlem/Cost', value: `$${stats?.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0).toFixed(2) || '0.00'}`, trend: '-5%', color: 'purple' },
                     { icon: <Users />, label: 'Top. Dönüşüm', value: growth?.reduce((acc: any, curr: any) => acc + curr.total_conversions, 0).toLocaleString() || '0', trend: '+45', color: 'blue' }
                 ].map((item, idx) => (
                     <motion.div
@@ -116,27 +116,22 @@ const ExecutiveDashboard = () => {
                     </div>
                     <div className="flex justify-between items-center mb-8 relative z-10">
                         <h3 className="text-xl font-bold flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-indigo-400" /> AI Maliyet & Performans
+                            <TrendingUp className="w-5 h-5 text-indigo-400" /> Birim Ekonomisi (Revenue vs AI Cost)
                         </h3>
                     </div>
                     <div className="h-[300px] w-full relative z-10">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats || []}>
-                                <defs>
-                                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
+                            <BarChart data={stats || []}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                                 <XAxis dataKey="feature_name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => val.length > 10 ? val.substring(0, 10) + '...' : val} />
                                 <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
-                                    itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
+                                    itemStyle={{ fontWeight: 'bold' }}
                                 />
-                                <Area type="monotone" dataKey="total_cost_usd" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorCost)" />
-                            </AreaChart>
+                                <Bar dataKey="total_revenue_usd" name="Gelir" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="total_cost_usd" name="Maliyet" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                            </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>

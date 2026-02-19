@@ -134,6 +134,29 @@ async function makeAIRequest(
     tenantName?: string,
     personalityPrompt?: string
 ) {
+    // 0. CTO Directive: RAG Cache (Hafızadan Getir)
+    // Sadece belirli özellikler için cache kontrolü yap (OCR ve Çözüm)
+    const cacheableFeatures = ["homework_solver", "elite_vision_ocr"];
+    if (cacheableFeatures.includes(featureName)) {
+        const userPrompt = messages.find(m => m.role === "user")?.content;
+        if (typeof userPrompt === 'string') {
+            try {
+                const { data: cached } = await supabase
+                    .from('ai_knowledge_graph')
+                    .select('ai_response')
+                    .eq('content_text', userPrompt)
+                    .maybeSingle();
+
+                if (cached?.ai_response) {
+                    console.log(`[RAG CACHE HIT] Feature: ${featureName} - Memory used.`);
+                    return cached.ai_response;
+                }
+            } catch (e) {
+                console.warn("Cache check error (ignored):", e);
+            }
+        }
+    }
+
     // 1. Intelligence Level Routing (Model Router)
     let primaryProvider = getActiveProvider();
 
@@ -203,6 +226,18 @@ async function makeAIRequest(
             const content = data.choices[0].message.content;
             const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
             const latency = Date.now() - startTime;
+
+            // CTO Directive: Save to Knowledge Graph (RAG Cache)
+            if (cacheableFeatures.includes(featureName)) {
+                const userPrompt = messages.find(m => m.role === "user")?.content;
+                if (typeof userPrompt === 'string' && content) {
+                    supabase.from("ai_knowledge_graph").upsert({
+                        content_text: userPrompt,
+                        ai_response: content,
+                        category: featureName
+                    }).then(({ error }) => error && console.warn("Cache save error:", error));
+                }
+            }
 
             // Cost Calculation
             const costs = MODEL_COSTS[provider.model] || { prompt: 0, completion: 0 };
