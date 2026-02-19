@@ -667,7 +667,13 @@ export default function QuestionDetail() {
                             <Button
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                onClick={() => navigate("/dashboard/ask")}
+                                onClick={() => {
+                                    if (similarQuestion) {
+                                        localStorage.setItem("ask_question_draft_text", similarQuestion);
+                                        localStorage.setItem("ask_question_draft_subject", question?.subject || "");
+                                    }
+                                    navigate("/dashboard/ask");
+                                }}
                             >
                                 Çözümü Gönder
                             </Button>
