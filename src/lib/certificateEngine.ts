@@ -29,13 +29,16 @@ export async function checkAndIssueCertificates(userId: string) {
             await issueStreakCertificate(userId, profile.streak);
         }
 
+        // --- SENARYO 3: Akademik Mükemmellik (Başarı Oranı > %85 ve min 10 soru) ---
+        const { data: metrics } = await supabase.from('student_performance_metrics').select('*').eq('student_id', userId).maybeSingle();
+
+        if (metrics && metrics.solved_questions >= 10 && metrics.success_rate >= 0.85 && !earnedTypes.has('academic_excellence')) {
+            await issueExcellenceCertificate(userId);
+        }
+
     } catch (error) {
         console.error("Certificate check error:", error);
     }
-}
-
-async function issueLevelCake(userId: string, level: number) {
-    // Placeholder - actually used the functions below
 }
 
 async function issueLevelCertificate(userId: string, level: number) {
@@ -66,6 +69,22 @@ async function issueStreakCertificate(userId: string, streak: number) {
         p_title: `${streak} Günlük Disiplin Üstadı`,
         p_description: `${streak} gün boyunca kesintisiz öğrenme maratonunu başarıyla sürdürdü.`,
         p_metadata: { streak },
+        p_ai_commendation: aiNote
+    });
+}
+
+async function issueExcellenceCertificate(userId: string) {
+    const aiNote = await askAI(
+        `Bir öğrenci çözdüğü soruların %85'inden fazlasını başarıyla tamamladı. Onun keskin zekasını ve hatasız ilerleyişini öven elit bir takdir cümlesi yaz.`,
+        "Sen bir dahi ve mentörsün."
+    );
+
+    await supabase.rpc('issue_certificate', {
+        p_user_id: userId,
+        p_type: 'academic_excellence',
+        p_title: `Akademik Üstünlük Belgesi`,
+        p_description: `Soruları yüksek doğruluk oranıyla çözerek akademik mükemmeliyetini kanıtladı.`,
+        p_metadata: { achievement: 'high_accuracy' },
         p_ai_commendation: aiNote
     });
 }

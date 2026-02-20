@@ -3,6 +3,7 @@
  * Supports multiple providers: Groq, Gemini, OpenAI, Claude
  */
 import { supabase } from "./supabase";
+import { queryKnowledge } from "./knowledge";
 
 // Model Configuration
 interface AIProviderConfig {
@@ -210,11 +211,38 @@ async function makeAIRequest(
         identityPrompt += `\n\nÖzel Kurumsal Kimlik: ${personalityPrompt}`;
     }
 
+    // CTO Directive: RAG Context Injection (Real retrieval)
+    let ragContext = "";
+    if (featureName === "homework_solver" || featureName === "general_chat") {
+        const userMsg = messages.find(m => m.role === "user")?.content;
+        const userText = typeof userMsg === 'string'
+            ? userMsg
+            : Array.isArray(userMsg)
+                ? (userMsg as any[]).find((c: any) => c.type === 'text')?.text
+                : "";
+
+        if (userText && typeof userText === 'string') {
+            try {
+                const results = await queryKnowledge(userText as string);
+                if (results && results.length > 0) {
+                    ragContext = "\n\nSistem Hafızasından İlgili Bilgiler:\n" +
+                        results.map(r => `- [${r.source_product}]: ${r.content_text}`).join("\n");
+                    console.log(`[RAG INJECTION] Found ${results.length} relevant entries.`);
+                }
+            } catch (e) {
+                console.warn("RAG Context fetch failed:", e);
+            }
+        }
+    }
+
+    // Combine everything
+    const finalIdentity = identityPrompt + ragContext;
+
     // Combine identity prompt with any existing system prompt in messages
     const existingSystemMsg = messages.find(m => m.role === "system");
     const combinedSystemPrompt = existingSystemMsg
-        ? `${identityPrompt}\n\nGörev Talimatı: ${existingSystemMsg.content}`
-        : identityPrompt;
+        ? `${finalIdentity}\n\nGörev Talimatı: ${existingSystemMsg.content}`
+        : finalIdentity;
 
     const isVisionTask = featureName === "elite_vision_ocr" || (featureName === "homework_solver" && messages.some(m => Array.isArray(m.content)));
 

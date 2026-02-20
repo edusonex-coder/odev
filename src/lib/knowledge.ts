@@ -18,12 +18,12 @@ export interface KnowledgeEntry {
 export async function contributeToKnowledge(entry: KnowledgeEntry) {
     console.log(`Knowledge Contribution: [${entry.source_product}] -> [${entry.category}]`);
 
-    const { data, error } = await supabase.from('ai_knowledge_graph').insert({
+    const { data, error } = await supabase.from('ai_knowledge_graph').upsert({
         category: entry.category,
         source_product: entry.source_product,
         content_text: entry.content,
         metadata: entry.metadata || {}
-    });
+    }, { onConflict: 'content_text' });
 
     if (error) {
         if (error.code === '42P01') {
@@ -48,8 +48,18 @@ export async function queryKnowledge(query: string, category?: string) {
         q = q.eq('category', category);
     }
 
-    // Simple text-based search for initial version
-    q = q.ilike('content_text', `%${query}%`);
+    // Sanitize query: remove short words and stop words for better ilike matching
+    const keywords = query.split(' ')
+        .filter(word => word.length > 3)
+        .slice(0, 3);
+
+    if (keywords.length > 0) {
+        // Match ANY of the keywords
+        const filter = keywords.map(k => `content_text.ilike.%${k}%`).join(',');
+        q = q.or(filter);
+    } else {
+        q = q.ilike('content_text', `%${query}%`);
+    }
 
     const { data, error } = await q.limit(5);
 
