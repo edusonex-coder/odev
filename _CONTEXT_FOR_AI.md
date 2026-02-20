@@ -10697,7 +10697,7 @@ export default function LandingPage() {
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1 rounded-full text-xs font-bold">EN ÇOK TERCİH EDİLEN</div>
               <h3 className="text-2xl font-bold mb-2 text-primary">Pro Paket</h3>
               <p className="text-muted-foreground mb-6">Sınavlara hazırlanan ciddi öğrenciler için.</p>
-              <div className="text-4xl font-black mb-6">₺99 <span className="text-base font-normal text-muted-foreground">/ay</span></div>
+              <div className="text-4xl font-black mb-6">₺999 <span className="text-base font-normal text-muted-foreground">/ay</span></div>
               <ul className="space-y-4 mb-8 flex-grow">
                 <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Sınırsız Soru Fotoğrafı</li>
                 <li className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-primary" /> Sokratik Yöntemle Anlatım</li>

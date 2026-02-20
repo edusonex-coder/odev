@@ -13,7 +13,9 @@ import {
     Crown,
     Star,
     Award,
-    ChevronRight
+    ChevronRight,
+    Calendar,
+    Globe
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -35,6 +37,7 @@ interface LeaderboardUser {
     level: number;
     avatar_url: string | null;
     tenant_id: string | null;
+    rank: number;
 }
 
 export default function Leaderboard() {
@@ -45,6 +48,7 @@ export default function Leaderboard() {
     const [users, setUsers] = useState<LeaderboardUser[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [filter, setFilter] = useState<"global" | "school">("global");
+    const [period, setPeriod] = useState<"all_time" | "weekly">("weekly");
     const [myRank, setMyRank] = useState<number | null>(null);
 
     useEffect(() => {
@@ -55,36 +59,23 @@ export default function Leaderboard() {
 
     useEffect(() => {
         fetchLeaderboard();
-    }, [filter, profile?.tenant_id]);
+    }, [filter, period, profile?.tenant_id]);
 
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            let query = supabase
-                .from('profiles')
-                .select('id, full_name, xp, level, avatar_url, tenant_id')
-                .eq('role', 'student');
-
-            if (filter === 'school' && profile?.tenant_id) {
-                query = query.eq('tenant_id', profile.tenant_id);
-            }
-
-            query = query.order('xp', { ascending: false });
-
-            const { data, error } = await query.limit(100);
+            const { data, error } = await supabase.rpc('get_leaderboard_v2', {
+                p_tenant_id: filter === 'school' ? profile?.tenant_id : null,
+                p_period: period,
+                p_limit: 100
+            });
 
             if (error) throw error;
             setUsers(data || []);
 
-            // Find current user's rank
             if (authUser) {
-                const index = (data || []).findIndex(u => u.id === authUser.id);
-                if (index !== -1) {
-                    setMyRank(index + 1);
-                } else {
-                    // If not in top 100, we could fetch specifically but for now keep null
-                    setMyRank(null);
-                }
+                const myIdx = (data || []).findIndex((u: any) => u.id === authUser.id);
+                setMyRank(myIdx !== -1 ? myIdx + 1 : null);
             }
         } catch (err) {
             console.error("Leaderboard Error:", err);
@@ -116,90 +107,121 @@ export default function Leaderboard() {
                 <Loader2 className="w-12 h-12 animate-spin text-primary" />
                 <Trophy className="w-4 h-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary" />
             </div>
-            <p className="font-medium animate-pulse text-muted-foreground">Şampiyonlar sahası hazırlanıyor...</p>
+            <p className="font-medium animate-pulse text-muted-foreground italic text-lg">Şampiyonlar sahası hazırlanıyor...</p>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-24">
-            <SEO title="Liderlik Tablosu" />
-            
-            {/* Hero Background Decor */}
-            <div className="absolute top-0 left-0 right-0 h-96 bg-primary/5 -z-10 overflow-hidden">
-                <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[100%] bg-accent/10 blur-[120px] rounded-full animate-pulse" />
-                <div className="absolute bottom-[-20%] left-[-5%] w-[30%] h-[80%] bg-primary/10 blur-[100px] rounded-full" />
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 relative via-white to-slate-50 pb-24 font-outfit">
+            <SEO title="Şampiyonlar Arenası | OdevGPT" />
+
+            {/* Ambient Background */}
+            <div className="absolute top-0 left-0 right-0 h-[600px] overflow-hidden -z-10 pointer-events-none">
+                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[100%] bg-primary/5 blur-[120px] rounded-full" />
+                <div className="absolute top-[10%] left-[-10%] w-[40%] h-[80%] bg-accent/5 blur-[100px] rounded-full" />
+                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
             </div>
 
-            <div className="container py-8 max-w-5xl mx-auto space-y-10 relative">
+            <div className="container py-8 max-w-6xl mx-auto space-y-12 relative px-4">
                 {/* Header Section */}
-                <div className="flex flex-col gap-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Button 
-                                variant="outline" 
-                                size="icon" 
-                                onClick={() => navigate(-1)} 
-                                className="rounded-full bg-white shadow-sm hover:shadow-md transition-all"
+                <div className="flex flex-col gap-8">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-6">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigate(-1)}
+                                className="rounded-2xl h-12 w-12 bg-white/80 backdrop-blur-sm shadow-sm border-slate-100 hover:scale-105 transition-transform"
                             >
-                                <ArrowLeft className="w-5 h-5" />
+                                <ArrowLeft className="w-5 h-5 text-slate-600" />
                             </Button>
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
-                                    Liderlik Tablosu <Sparkles className="w-6 h-6 text-yellow-500 animate-pulse" />
+                                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                                    Arenası <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-200 px-3 py-1">CANLI</Badge>
                                 </h1>
-                                <p className="text-muted-foreground text-sm font-medium">EdusonEX evreninin en başarılı kaşifleri!</p>
+                                <p className="text-slate-500 text-lg font-medium">Rekabetin kalbi burada atıyor.</p>
                             </div>
                         </div>
 
-                        {/* Current User Quick Stats - Desktop */}
-                        {profile && (
-                            <div className="hidden md:flex items-center gap-6 bg-white p-3 px-6 rounded-2xl shadow-sm border border-slate-100">
-                                <div className="text-center">
-                                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">XP</p>
-                                    <p className="font-black text-primary">{profile.xp}</p>
+                        {/* Stats Hub */}
+                        <div className="flex items-center gap-2 p-1 bg-white/80 backdrop-blur-md rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
+                            <div className="flex items-center gap-2 px-6 py-3 border-r border-slate-100 group cursor-default">
+                                <div className="p-2 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+                                    <Sparkles className="w-5 h-5 text-primary" />
                                 </div>
-                                <div className="w-px h-8 bg-slate-100" />
-                                <div className="text-center">
-                                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">SIRALAMA</p>
-                                    <p className="font-black text-accent">{myRank ? `#${myRank}` : "???"}</p>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">XP Skorun</p>
+                                    <p className="font-black text-xl text-slate-800 leading-none">{profile?.xp || 0}</p>
                                 </div>
                             </div>
-                        )}
+                            <div className="flex items-center gap-2 px-6 py-3 group cursor-default">
+                                <div className="p-2 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
+                                    <Trophy className="w-5 h-5 text-accent" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Sıran</p>
+                                    <p className="font-black text-xl text-slate-800 leading-none">{myRank ? `#${myRank}` : "???"}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Filters & Search Row */}
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <div className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 flex gap-1 w-full md:w-auto">
+                    {/* Master Filter Bar */}
+                    <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
+                        {/* Period Filter (New) */}
+                        <div className="flex p-1.5 bg-slate-100/50 backdrop-blur-sm rounded-2xl border border-slate-200/50 flex-1 lg:flex-none">
                             <Button
-                                variant={filter === 'global' ? 'primary' : 'ghost'}
-                                size="sm"
+                                variant={period === 'weekly' ? 'default' : 'ghost'}
                                 className={cn(
-                                    "rounded-xl h-10 px-6 transition-all",
-                                    filter === 'global' ? "shadow-glow" : "text-muted-foreground hover:bg-slate-50"
+                                    "rounded-xl px-6 h-10 flex-1 transition-all duration-300",
+                                    period === 'weekly' ? "shadow-lg bg-primary text-white" : "text-slate-500"
+                                )}
+                                onClick={() => setPeriod('weekly')}
+                            >
+                                <Calendar className="w-4 h-4 mr-2" /> Haftalık
+                            </Button>
+                            <Button
+                                variant={period === 'all_time' ? 'default' : 'ghost'}
+                                className={cn(
+                                    "rounded-xl px-6 h-10 flex-1 transition-all duration-300",
+                                    period === 'all_time' ? "shadow-lg bg-primary text-white" : "text-slate-500"
+                                )}
+                                onClick={() => setPeriod('all_time')}
+                            >
+                                <Globe className="w-4 h-4 mr-2" /> Tüm Zamanlar
+                            </Button>
+                        </div>
+
+                        {/* Global/School Filter */}
+                        <div className="flex p-1.5 bg-white shadow-xl rounded-2xl border border-slate-100 flex-1 lg:flex-none">
+                            <Button
+                                variant={filter === 'global' ? 'secondary' : 'ghost'}
+                                className={cn(
+                                    "rounded-xl px-6 h-10 flex-1 transition-all",
+                                    filter === 'global' ? "bg-slate-100 text-slate-900" : "text-slate-500"
                                 )}
                                 onClick={() => setFilter('global')}
                             >
-                                <Star className={cn("w-4 h-4 mr-2", filter === 'global' ? "fill-current" : "")} />
-                                Global
+                                <Globe className="w-4 h-4 mr-2" /> Global
                             </Button>
                             <Button
-                                variant={filter === 'school' ? 'primary' : 'ghost'}
-                                size="sm"
+                                variant={filter === 'school' ? 'secondary' : 'ghost'}
                                 className={cn(
-                                    "rounded-xl h-10 px-6 transition-all",
-                                    filter === 'school' ? "shadow-glow" : "text-muted-foreground hover:bg-slate-50"
+                                    "rounded-xl px-6 h-10 flex-1 transition-all",
+                                    filter === 'school' ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-500"
                                 )}
                                 onClick={() => setFilter('school')}
                             >
-                                <Target className="w-4 h-4 mr-2" />
-                                {tenant ? tenant.name : "Okul İçi"}
+                                <Target className="w-4 h-4 mr-2" /> {tenant ? tenant.name : "Okul"}
                             </Button>
                         </div>
-                        <div className="relative flex-1 group w-full">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+
+                        {/* Search */}
+                        <div className="relative flex-1 group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
                             <Input
-                                placeholder="Bir şampiyonun ismini ara..."
-                                className="pl-12 h-12 rounded-2xl border-slate-100 bg-white shadow-sm focus:ring-primary/20 transition-all text-base"
+                                placeholder="Şampiyonları ara..."
+                                className="pl-12 h-14 rounded-2xl border-slate-100 bg-white shadow-xl focus:ring-primary/20 text-lg font-medium transition-all"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -207,86 +229,106 @@ export default function Leaderboard() {
                     </div>
                 </div>
 
-                {/* Top 3 PodiumSection */}
+                {/*  podium Section - Redesigned to be more 3D/Premium */}
                 {!searchQuery && topThree.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end py-10">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end py-10 perspective-1000">
                         {/* 2nd Place */}
                         <AnimatePresence mode="wait">
                             {topThree[1] && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 40 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2 }}
-                                    key={`rank-2-${filter}`}
-                                    className="order-2 md:order-1"
+                                    initial={{ opacity: 0, scale: 0.9, x: -50 }}
+                                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                                    transition={{ delay: 0.2, type: "spring" }}
+                                    className="order-2 md:order-1 h-full flex flex-col justify-end"
                                 >
-                                    <Card className="border-0 shadow-lg text-center bg-white/80 backdrop-blur-sm group hover:scale-[1.02] transition-transform">
-                                        <div className="h-2 w-full bg-slate-300 rounded-t-xl" />
-                                        <CardContent className="pt-10 pb-8 space-y-4">
-                                            <div className="relative inline-block">
-                                                <Avatar className="w-24 h-24 border-4 border-white shadow-xl">
-                                                    <AvatarImage src={topThree[1].avatar_url || ""} />
-                                                    <AvatarFallback>{topThree[1].full_name?.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="absolute -bottom-2 -right-2 bg-slate-400 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold border-4 border-white shadow-lg text-lg">2</div>
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-xl group-hover:text-primary transition-colors">{topThree[1].full_name}</h3>
-                                                <div className="flex items-center justify-center gap-2 mt-1">
-                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-slate-200">Seviye {topThree[1].level}</Badge>
+                                    <div className="relative group p-1 rounded-[2.5rem] bg-gradient-to-b from-slate-200 to-transparent">
+                                        <Card className="border-0 shadow-2xl text-center bg-white/95 backdrop-blur-xl rounded-[2.4rem] overflow-hidden group-hover:scale-[1.02] transition-transform duration-500">
+                                            <CardContent className="pt-10 pb-8 space-y-4">
+                                                <div className="relative inline-block">
+                                                    <div className="absolute inset-0 bg-slate-300 blur-2xl opacity-30 rounded-full" />
+                                                    <Avatar className="w-24 h-24 border-4 border-slate-100 shadow-xl relative">
+                                                        <AvatarImage src={topThree[1].avatar_url || ""} />
+                                                        <AvatarFallback>{topThree[1].full_name?.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="absolute -bottom-2 -right-2 bg-slate-400 text-white w-10 h-10 rounded-full flex items-center justify-center font-black border-4 border-white shadow-lg text-lg">2</div>
                                                 </div>
-                                            </div>
-                                            <div className="text-3xl font-black text-slate-700 tabular-nums">{topThree[1].xp.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">XP</span></div>
-                                        </CardContent>
-                                    </Card>
+                                                <div className="space-y-1">
+                                                    <h3 className="font-black text-xl text-slate-800">{topThree[1].full_name}</h3>
+                                                    <div className="flex justify-center gap-1.5 capitalize">
+                                                        <Badge className="bg-slate-100 text-slate-500 border-0">Seviye {topThree[1].level}</Badge>
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl font-black text-slate-600 tabular-nums">
+                                                    {topThree[1].xp.toLocaleString()} <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">XP</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        {/* 1st Place - The Champion */}
+                        {/* 1st Place - The King */}
                         <AnimatePresence mode="wait">
                             {topThree[0] && (
                                 <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
+                                    initial={{ opacity: 0, scale: 0.8, y: 50 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
                                     transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                                    key={`rank-1-${filter}`}
-                                    className="order-1 md:order-2 z-10"
+                                    key={`champion-${period}-${filter}`}
+                                    className="order-1 md:order-2 z-20"
                                 >
                                     <div className="relative group">
-                                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 animate-bounce">
-                                            <Crown className="w-12 h-12 text-yellow-500 fill-yellow-500 drop-shadow-xl" />
+                                        <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-30">
+                                            <motion.div
+                                                animate={{
+                                                    rotate: [0, -10, 10, 0],
+                                                    scale: [1, 1.1, 1]
+                                                }}
+                                                transition={{ duration: 4, repeat: Infinity }}
+                                            >
+                                                <Crown className="w-20 h-20 text-yellow-500 fill-yellow-500 drop-shadow-[0_10px_30px_rgba(234,179,8,0.5)]" />
+                                            </motion.div>
                                         </div>
-                                        
-                                        <Card className="border-0 shadow-2xl text-center overflow-hidden relative bg-white group-hover:scale-[1.05] transition-transform">
-                                            <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 via-amber-500/5 to-transparent" />
-                                            <div className="h-3 w-full bg-gradient-to-r from-yellow-400 via-amber-200 to-yellow-600" />
-                                            
-                                            <CardContent className="pt-12 pb-12 space-y-6 relative">
-                                                <div className="relative inline-block">
-                                                    <div className="absolute inset-0 bg-yellow-400 blur-3xl opacity-20 animate-pulse" />
-                                                    <Avatar className="w-36 h-36 border-4 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.3)] relative">
-                                                        <AvatarImage src={topThree[0].avatar_url || ""} />
-                                                        <AvatarFallback className="text-4xl">{topThree[0].full_name?.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="absolute -bottom-3 -right-3 bg-gradient-to-br from-yellow-400 to-amber-600 text-white w-14 h-14 rounded-full flex items-center justify-center font-black border-4 border-white shadow-2xl text-2xl">1</div>
-                                                </div>
-                                                
-                                                <div className="space-y-2">
-                                                    <h2 className="font-black text-3xl tracking-tight text-slate-900">{topThree[0].full_name}</h2>
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Badge className="bg-yellow-500 text-white hover:bg-yellow-600 border-0 shadow-sm animate-pulse">
-                                                            EFSANEVİ LİDER
-                                                        </Badge>
-                                                        <Badge variant="outline" className="border-yellow-200 text-yellow-700">LVL {topThree[0].level}</Badge>
+
+                                        <div className="p-1.5 rounded-[3rem] bg-gradient-to-b from-yellow-300 via-amber-500 to-transparent shadow-[0_30px_100px_rgba(234,179,8,0.2)]">
+                                            <Card className="border-0 shadow-2xl text-center overflow-hidden relative bg-white rounded-[2.8rem] transition-all duration-700 group-hover:scale-[1.03]">
+                                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(234,179,8,0.1),transparent)]" />
+                                                <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-yellow-50/50 to-transparent" />
+
+                                                <CardContent className="pt-16 pb-14 space-y-6 relative">
+                                                    <div className="relative inline-block">
+                                                        <div className="absolute inset-[-15px] bg-yellow-400 blur-[40px] opacity-20 rounded-full animate-pulse" />
+                                                        <Avatar className="w-40 h-40 border-[6px] border-yellow-400 shadow-[0_0_50px_rgba(234,179,8,0.4)] relative">
+                                                            <AvatarImage src={topThree[0].avatar_url || ""} />
+                                                            <AvatarFallback className="text-4xl font-black bg-yellow-50">{topThree[0].full_name?.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <motion.div
+                                                            className="absolute -bottom-4 -right-4 bg-gradient-to-br from-yellow-400 to-amber-600 text-white w-16 h-16 rounded-full flex items-center justify-center font-black border-[6px] border-white shadow-2xl text-3xl"
+                                                            whileHover={{ scale: 1.1, rotate: 360 }}
+                                                        >
+                                                            1
+                                                        </motion.div>
                                                     </div>
-                                                </div>
-                                                
-                                                <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 drop-shadow-sm tabular-nums">
-                                                    {topThree[0].xp.toLocaleString()} <span className="text-sm text-amber-800/60 font-medium">XP</span>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+
+                                                    <div className="space-y-2">
+                                                        <h2 className="font-black text-3xl tracking-tight text-slate-900 group-hover:bg-gradient-to-r group-hover:from-yellow-600 group-hover:to-amber-600 group-hover:bg-clip-text group-hover:text-transparent transition-all">
+                                                            {topThree[0].full_name}
+                                                        </h2>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Badge className="bg-yellow-500 text-white hover:bg-yellow-600 border-0 px-4 py-1 font-bold shadow-lg shadow-yellow-200">
+                                                                ARENA ŞAMPİYONU
+                                                            </Badge>
+                                                            <Badge variant="outline" className="border-yellow-200 text-yellow-700 bg-yellow-50/50">LVL {topThree[0].level}</Badge>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="text-6xl font-black text-slate-800 tabular-nums tracking-tighter">
+                                                        {topThree[0].xp.toLocaleString()} <span className="text-base text-yellow-600 font-black uppercase tracking-widest ml-1">XP</span>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                     </div>
                                 </motion.div>
                             )}
@@ -296,142 +338,165 @@ export default function Leaderboard() {
                         <AnimatePresence mode="wait">
                             {topThree[2] && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 40 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 }}
-                                    key={`rank-3-${filter}`}
-                                    className="order-3"
+                                    initial={{ opacity: 0, scale: 0.9, x: 50 }}
+                                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                                    transition={{ delay: 0.3, type: "spring" }}
+                                    className="order-3 h-full flex flex-col justify-end"
                                 >
-                                    <Card className="border-0 shadow-lg text-center bg-white/80 backdrop-blur-sm group hover:scale-[1.02] transition-transform">
-                                        <div className="h-2 w-full bg-orange-400 rounded-t-xl opacity-60" />
-                                        <CardContent className="pt-10 pb-8 space-y-4">
-                                            <div className="relative inline-block">
-                                                <Avatar className="w-24 h-24 border-4 border-white shadow-xl">
-                                                    <AvatarImage src={topThree[2].avatar_url || ""} />
-                                                    <AvatarFallback>{topThree[2].full_name?.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="absolute -bottom-2 -right-2 bg-amber-700 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold border-4 border-white shadow-lg text-lg">3</div>
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-xl group-hover:text-primary transition-colors">{topThree[2].full_name}</h3>
-                                                <div className="flex items-center justify-center gap-2 mt-1">
-                                                    <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-100">Seviye {topThree[2].level}</Badge>
+                                    <div className="relative group p-1 rounded-[2.5rem] bg-gradient-to-b from-orange-200 to-transparent">
+                                        <Card className="border-0 shadow-2xl text-center bg-white/95 backdrop-blur-xl rounded-[2.4rem] overflow-hidden group-hover:scale-[1.02] transition-transform duration-500">
+                                            <CardContent className="pt-10 pb-8 space-y-4">
+                                                <div className="relative inline-block">
+                                                    <Avatar className="w-24 h-24 border-4 border-orange-100 shadow-xl">
+                                                        <AvatarImage src={topThree[2].avatar_url || ""} />
+                                                        <AvatarFallback>{topThree[2].full_name?.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="absolute -bottom-2 -right-2 bg-amber-700 text-white w-10 h-10 rounded-full flex items-center justify-center font-black border-4 border-white shadow-lg text-lg">3</div>
                                                 </div>
-                                            </div>
-                                            <div className="text-3xl font-black text-amber-800 tabular-nums">{topThree[2].xp.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">XP</span></div>
-                                        </CardContent>
-                                    </Card>
+                                                <div className="space-y-1">
+                                                    <h3 className="font-black text-xl text-slate-800">{topThree[2].full_name}</h3>
+                                                    <div className="flex justify-center gap-1.5 capitalize">
+                                                        <Badge className="bg-orange-50 text-orange-600 border-0">Seviye {topThree[2].level}</Badge>
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl font-black text-amber-700 tabular-nums">
+                                                    {topThree[2].xp.toLocaleString()} <span className="text-xs text-amber-500 font-bold uppercase tracking-widest">XP</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
                 )}
 
-                {/* List Table Modernized */}
-                <Card className="shadow-2xl border-0 overflow-hidden bg-white/60 backdrop-blur-md rounded-[2rem]">
-                    <div className="p-8 border-b border-slate-100 bg-white/40 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <Award className="w-6 h-6 text-primary" />
+                {/* main Ranking Table */}
+                <Card className="shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border-0 overflow-hidden bg-white/80 backdrop-blur-2xl rounded-[3rem]">
+                    <div className="p-8 md:p-10 border-b border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center">
+                                <Award className="w-8 h-8 text-primary" />
                             </div>
-                            <h2 className="text-xl font-bold text-slate-800">Şampiyonlar Arenası</h2>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Kalan Şampiyonlar</h2>
+                                <p className="text-slate-500 font-medium">Sıralamanı yükseltmek için daha çok soru çöz!</p>
+                            </div>
                         </div>
-                        <div className="hidden sm:flex items-center gap-6">
-                            <span className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                                <Target className="w-4 h-4 text-primary" /> Zirve Hedefi
-                            </span>
-                            <span className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                                <Flame className="w-4 h-4 text-orange-500" /> Aktif Rekabet
-                            </span>
+                        <div className="flex items-center gap-8">
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <TrendingUp className="w-4 h-4 text-green-500" />
+                                    <span className="text-sm font-black text-slate-800">%{Math.floor(Math.random() * 20) + 80}</span>
+                                </div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AKTİVİTE</span>
+                            </div>
+                            <div className="w-px h-10 bg-slate-100" />
+                            <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
+                                    <span className="text-sm font-black text-slate-800">CANLI</span>
+                                </div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REKABET</span>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <div className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                <thead className="bg-slate-50/30 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
                                     <tr>
-                                        <th className="px-8 py-5"># SIra</th>
-                                        <th className="px-8 py-5">Kaşif Bilgileri</th>
-                                        <th className="px-8 py-5 hidden md:table-cell">Gelişim Seviyesi</th>
-                                        <th className="px-8 py-5 text-right">Skor</th>
-                                        <th className="px-4 py-5 w-10"></th>
+                                        <th className="px-10 py-6">SIRALAMA</th>
+                                        <th className="px-6 py-6">OYUNCU PROFİLİ</th>
+                                        <th className="px-6 py-6 hidden lg:table-cell">GELİŞİM PLANI</th>
+                                        <th className="px-10 py-6 text-right">SKOR (XP)</th>
+                                        <th className="px-6 py-6 w-10"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {others.map((user, index) => {
                                         const rank = searchQuery ? index + 1 : index + 4;
                                         const isCurrentUser = user.id === authUser?.id;
-                                        
+
                                         return (
                                             <motion.tr
                                                 key={user.id}
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: 0.05 * index }}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.03 * index }}
                                                 className={cn(
-                                                    "hover:bg-primary/[0.02] transition-colors group cursor-pointer",
-                                                    isCurrentUser ? "bg-primary/[0.03]" : ""
+                                                    "group transition-all duration-300 hover:bg-slate-50/50 cursor-pointer",
+                                                    isCurrentUser ? "bg-primary/[0.04] relative z-10" : ""
                                                 )}
                                             >
-                                                <td className="px-8 py-6">
+                                                <td className="px-10 py-7">
                                                     <div className={cn(
-                                                        "w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-sm transition-transform group-hover:scale-110",
-                                                        rank <= 3 ? getRankStyles(rank-1) : "bg-slate-100 text-slate-500"
+                                                        "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all duration-500 group-hover:scale-110 group-hover:rotate-3",
+                                                        rank <= 3 ? getRankStyles(rank - 1) : "bg-white border-2 border-slate-100 text-slate-400 shadow-sm"
                                                     )}>
-                                                        {rank <= 3 ? <Medal className="w-5 h-5 text-white" /> : rank}
+                                                        {rank <= 3 ? <Medal className="w-6 h-6 text-white" /> : rank}
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-4">
+                                                <td className="px-6 py-7">
+                                                    <div className="flex items-center gap-5">
                                                         <div className="relative">
-                                                            <Avatar className="w-12 h-12 border-2 border-white shadow-md transition-all group-hover:border-primary/30">
+                                                            <Avatar className="w-14 h-14 border-[3px] border-white shadow-xl transition-all group-hover:border-primary/50">
                                                                 <AvatarImage src={user.avatar_url || ""} />
-                                                                <AvatarFallback>{user.full_name?.charAt(0)}</AvatarFallback>
+                                                                <AvatarFallback className="bg-slate-100 font-bold text-slate-500">{user.full_name?.charAt(0)}</AvatarFallback>
                                                             </Avatar>
                                                             {isCurrentUser && (
-                                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />
+                                                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 border-[3px] border-white rounded-full shadow-lg animate-pulse" />
                                                             )}
                                                         </div>
-                                                        <div className="flex flex-col">
+                                                        <div className="flex flex-col gap-0.5">
                                                             <span className={cn(
-                                                                "font-bold text-slate-900 flex items-center gap-2",
-                                                                isCurrentUser ? "text-primary" : ""
+                                                                "font-black text-xl tracking-tight transition-colors",
+                                                                isCurrentUser ? "text-primary" : "text-slate-800"
                                                             )}>
                                                                 {user.full_name}
-                                                                {isCurrentUser && <Badge className="h-4 p-0 px-1 text-[8px] bg-primary text-white">SENSİN</Badge>}
+                                                                {isCurrentUser && <Badge className="ml-3 h-5 px-2 bg-primary text-white text-[9px] font-black tracking-widest">SENİN SKORUN</Badge>}
                                                             </span>
-                                                            <span className="text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium mt-0.5">
-                                                                <TrendingUp className="w-3 h-3 text-green-500" /> 
-                                                                Lvl {user.level} · Son 24 saatte yükselişte
-                                                            </span>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                                                                    <Target className="w-3 h-3 text-slate-400" /> Seviye {user.level}
+                                                                </span>
+                                                                <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                                                                <span className="text-[11px] text-green-500 font-bold flex items-center gap-1 uppercase tracking-wider">
+                                                                    <TrendingUp className="w-3 h-3" /> YÜKSELİŞTE
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 hidden md:table-cell">
-                                                    <div className="flex flex-col gap-2 w-32">
-                                                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
-                                                            <span>Puan: {user.xp % 500} / 500</span>
-                                                            <span>%{Math.floor(((user.xp % 500) / 500) * 100)}</span>
+                                                <td className="px-6 py-7 hidden lg:table-cell">
+                                                    <div className="flex flex-col gap-2.5 w-44">
+                                                        <div className="flex items-center justify-between text-[11px] font-black text-slate-400 tracking-wider">
+                                                            <span>SONRAKİ LVL</span>
+                                                            <span>%{Math.floor(((user.xp % 1000) / 1000) * 100)}</span>
                                                         </div>
-                                                        <Progress 
-                                                            value={(user.xp % 500) / 5} 
-                                                            className="h-2 bg-slate-100" 
-                                                            //@ts-ignore
-                                                            indicatorClassName="bg-gradient-to-r from-primary to-indigo-500"
-                                                        />
+                                                        <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                            <motion.div
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${(user.xp % 1000) / 10}%` }}
+                                                                transition={{ delay: 0.5, duration: 1.5 }}
+                                                                className="h-full bg-gradient-to-r from-primary via-indigo-500 to-accent"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 text-right">
+                                                <td className="px-10 py-7 text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <span className="font-black text-xl text-slate-800 tabular-nums tracking-tight">
+                                                        <span className="font-black text-3xl text-slate-900 tabular-nums tracking-tighter leading-none mb-1">
                                                             {user.xp.toLocaleString()}
                                                         </span>
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">TOPLAM XP</span>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">Puan</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-6">
-                                                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors" />
+                                                <td className="px-6 py-7">
+                                                    <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                                                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+                                                    </div>
                                                 </td>
                                             </motion.tr>
                                         );
@@ -439,99 +504,70 @@ export default function Leaderboard() {
                                 </tbody>
                             </table>
                         </div>
+
                         {others.length === 0 && (
-                            <div className="py-24 text-center">
-                                <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Search className="w-8 h-8 text-slate-300" />
-                                </div>
-                                <h3 className="text-slate-900 font-bold text-lg">Eşleşen şampiyon bulunamadı</h3>
-                                <p className="text-muted-foreground text-sm">Arama kriterini değiştirmeyi dene.</p>
+                            <div className="py-32 text-center bg-slate-50/50">
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="bg-white w-24 h-24 rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6"
+                                >
+                                    <Search className="w-10 h-10 text-slate-200" />
+                                </motion.div>
+                                <h3 className="text-slate-900 font-black text-2xl tracking-tight mb-2">Kimseyi bulamadık!</h3>
+                                <p className="text-slate-500 font-medium max-w-xs mx-auto">Aradığın şampiyon henüz arenaya girmemiş olabilir.</p>
                             </div>
                         )}
                     </div>
                 </Card>
 
-                {/* Personalized Floating Status Bar (Only if user is not in top items) */}
+                {/* Floating User Rank Info (If not in sight) */}
                 {profile && myRank && myRank > 3 && (
-                    <motion.div 
-                        initial={{ y: 100 }}
-                        animate={{ y: 0 }}
-                        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4"
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-3xl"
                     >
-                        <Card className="bg-slate-900 text-white border-primary/20 shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-xl border-t-2">
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center font-black text-xl text-primary border border-primary/30">
-                                        #{myRank}
+                        <div className="p-1 rounded-[2.5rem] bg-gradient-to-r from-primary via-indigo-600 to-accent shadow-[0_30px_60px_rgba(0,0,0,0.4)]">
+                            <Card className="bg-slate-900/95 text-white border-0 backdrop-blur-2xl rounded-[2.4rem]">
+                                <CardContent className="p-6 flex items-center justify-between">
+                                    <div className="flex items-center gap-6">
+                                        <div className="relative">
+                                            <div className="absolute inset-0 bg-primary blur-2xl opacity-40 rounded-full animate-pulse" />
+                                            <div className="w-16 h-16 bg-gradient-to-br from-primary to-indigo-600 rounded-[1.2rem] flex items-center justify-center font-black text-2xl text-white shadow-xl relative">
+                                                #{myRank}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-black text-primary uppercase tracking-[0.3em] mb-1">Geceler Hâkimi</span>
+                                            <span className="font-black text-2xl tracking-tight">{profile.full_name}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-black text-primary uppercase tracking-widest">Senin Sıralaman</span>
-                                        <span className="font-bold text-base">{profile.full_name}</span>
+                                    <div className="flex items-center gap-10 pr-4">
+                                        <div className="text-right flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">SKORUN (XP)</span>
+                                            <span className="text-3xl font-black tabular-nums leading-none tracking-tighter text-white">{profile.xp.toLocaleString()}</span>
+                                        </div>
+                                        <div className="h-12 w-px bg-white/10" />
+                                        <div className="text-right flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">HEDEF FARK</span>
+                                            <span className="text-2xl font-black tabular-nums leading-none tracking-tighter text-indigo-400">
+                                                -{((users[myRank - 2]?.xp || 0) - profile.xp).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            size="icon"
+                                            className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 border-0 transition-colors"
+                                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                                        >
+                                            <TrendingUp className="w-6 h-6 text-primary" />
+                                        </Button>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-6 pr-2">
-                                    <div className="text-right">
-                                        <span className="text-[10px] font-bold text-slate-500 block">TOPLAM</span>
-                                        <span className="text-xl font-black tabular-nums">{profile.xp.toLocaleString()} XP</span>
-                                    </div>
-                                    <div className="h-10 w-px bg-slate-800" />
-                                    <div className="text-right">
-                                        <span className="text-[10px] font-bold text-slate-500 block">HEDEF</span>
-                                        <span className="text-base font-bold text-indigo-400">-{((users[myRank-2]?.xp || 0) - profile.xp).toLocaleString()} XP</span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </motion.div>
                 )}
-
-                {/* Motivation Section Modernized */}
-                <div className="grid md:grid-cols-2 gap-8 mt-12">
-                    <Card className="border-0 bg-primary shadow-2xl shadow-primary/20 text-white relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-125 transition-transform duration-500">
-                            <Trophy className="w-32 h-32" />
-                        </div>
-                        <CardHeader className="relative">
-                            <CardTitle className="flex items-center gap-2 text-2xl font-black">
-                                Zirveye Yolculuk
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4 relative">
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { xp: "+10", task: "Sokratik Sohbet", icon: <Sparkles className="w-4 h-4" /> },
-                                    { xp: "+100", task: "Zamanında Teslim", icon: <Award className="w-4 h-4" /> },
-                                    { xp: "+250", task: "Arkadaş Daveti", icon: <Star className="w-4 h-4" /> },
-                                    { xp: "+500", task: "Hataları Çözme", icon: <Target className="w-4 h-4" /> }
-                                ].map((item, i) => (
-                                    <div key={i} className="flex flex-col p-3 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                                        <span className="text-2xl font-black">{item.xp}</span>
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-white/70 flex items-center gap-1">
-                                            {item.icon} {item.task}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 bg-white shadow-xl flex flex-col justify-center">
-                        <CardHeader>
-                            <CardTitle className="text-slate-400 text-xs font-black uppercase tracking-[0.2em]">Günün Motivasyonu</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <blockquote className="space-y-4">
-                                <p className="text-2xl font-black text-slate-800 leading-tight italic">
-                                    "Eğitim, dünyayı değiştirmek için kullanabileceğiniz en güçlü silahtır."
-                                </p>
-                                <footer className="flex items-center gap-3">
-                                    <div className="w-8 h-1 bg-primary rounded-full" />
-                                    <cite className="text-sm font-bold text-slate-500 not-italic uppercase tracking-widest">Nelson Mandela</cite>
-                                </footer>
-                            </blockquote>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
         </div>
     );
