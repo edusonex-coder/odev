@@ -24,6 +24,7 @@ import {
   Users
 } from "lucide-react";
 import SmartReminders from "@/components/SmartReminders";
+import { SocraticQuizCard } from "@/components/SocraticQuizCard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -767,6 +768,9 @@ export default function DashboardHome() {
               HEPSİNİ TAMAMLA, SÜRPRİZ KUTU KAZAN! 🎁
             </CardFooter>
           </Card>
+
+          {/* Sokratik Quiz Kartı */}
+          <SocraticQuizCard studentId={user?.id || ''} />
 
           <div className="p-6 rounded-3xl bg-indigo-600 text-white shadow-xl relative overflow-hidden group cursor-pointer" onClick={() => navigate('/dashboard/referral')}>
             <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-110 transition-transform">
