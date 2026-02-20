@@ -47,24 +47,37 @@ export default function ClassInsightsPanel({ classId, className }: ClassInsights
         try {
             setLoading(true);
 
-            // 1. Zayıf konuları al (RPC)
-            const { data: weakTopicsData, error: weakError } = await supabase
-                .rpc('get_class_weak_topics', { p_class_id: classId, p_limit: 10 });
+            // 1. Zayıf konuları ve trendleri al (Yeni RPC v2)
+            const { data: analyticsData, error: analyticsError } = await supabase
+                .rpc('get_class_analytics_v2', { p_class_id: classId });
 
-            if (weakError) throw weakError;
+            if (analyticsError) throw analyticsError;
 
-            // 2. Öğrenci metriklerini al (View)
+            // 2. Sınıf genel metriklerini al
             const { data: metricsData, error: metricsError } = await supabase
+                .rpc('get_class_overall_metrics', { p_class_id: classId });
+
+            if (metricsError) throw metricsError;
+
+            // 3. Öğrenci metriklerini al (Görünümden)
+            const { data: studentPerfData, error: perfError } = await supabase
                 .from('student_performance_metrics')
                 .select('*')
                 .eq('class_id', classId);
 
-            if (metricsError) throw metricsError;
+            if (perfError) throw perfError;
 
-            setWeakTopics(weakTopicsData || []);
-            setStudentMetrics(metricsData || []);
+            setWeakTopics((analyticsData || []).map((t: any) => ({
+                topic: t.topic,
+                difficulty_score: 1 - t.success_rate,
+                student_count: t.student_count,
+                trend: t.trend,
+                total_questions: t.total_questions
+            })));
 
-            // 3. Mevcut insight var mı kontrol et
+            setStudentMetrics(studentPerfData || []);
+
+            // 4. Mevcut AI insight kontrol et
             const { data: existingInsight } = await supabase
                 .from('class_insights')
                 .select('*')

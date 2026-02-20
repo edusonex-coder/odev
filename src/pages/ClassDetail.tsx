@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { enhanceAnnouncement, summarizeForStudents, askAI } from "@/lib/ai";
 import { motion } from "framer-motion";
 import ClassChatRoom from "@/components/ClassChatRoom";
+import { generateAIAssignment, AIQuestion } from "@/lib/assignmentAI";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -125,6 +126,15 @@ export default function ClassDetail() {
     const [isEditClassOpen, setIsEditClassOpen] = useState(false);
     const [editName, setEditName] = useState("");
     const [editSchedule, setEditSchedule] = useState("");
+
+    // AI Assignment Wizard States
+    const [isAIWizardOpen, setIsAIWizardOpen] = useState(false);
+    const [aiSubject, setAiSubject] = useState("");
+    const [aiTopic, setAiTopic] = useState("");
+    const [aiLevel, setAiLevel] = useState("medium");
+    const [aiQuestionCount, setAiQuestionCount] = useState(5);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [generatedQuestions, setGeneratedQuestions] = useState<AIQuestion[]>([]);
 
     useEffect(() => {
         if (id) {
@@ -281,23 +291,36 @@ export default function ClassDetail() {
         }
     };
 
-    const handleCreateAssignment = async () => {
-        if (!newAssignmentTitle.trim() || !user || !id) return;
+    const handleGenerateAIContent = async () => {
+        if (!aiTopic.trim()) return;
+        setIsGeneratingAI(true);
+        try {
+            const subject = aiSubject || classData?.name || "Genel";
+            const questions = await generateAIAssignment(subject, aiTopic, aiLevel, aiQuestionCount);
+            setGeneratedQuestions(questions);
+            toast({ title: "Sihir Başarılı! ✨", description: `${questions.length} soru hazırlandı.` });
+        } catch (error: any) {
+            toast({ title: "Hata", description: error.message, variant: "destructive" });
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
+    const handleCreateAssignment = async (isInteractive: boolean = false) => {
+        const title = isInteractive ? `AI Quiz: ${aiTopic}` : newAssignmentTitle;
+        if (!title.trim() || !user || !id) return;
+
         setIsCreatingAssignment(true);
         try {
-            // Check required fields
-            if (!newAssignmentTitle) {
-                toast({ title: "Hata", description: "Ödev başlığı zorunludur.", variant: "destructive" });
-                return;
-            }
-
             const payload = {
                 class_id: id,
                 teacher_id: user.id,
-                title: newAssignmentTitle,
-                description: newAssignmentDesc,
+                title: title,
+                description: isInteractive ? `${aiTopic} konusu üzerine interaktif quiz.` : newAssignmentDesc,
                 due_date: newAssignmentDueDate || null,
-                status: 'active'
+                status: 'active',
+                type: isInteractive ? 'interactive' : 'classic',
+                content_json: isInteractive ? generatedQuestions : []
             };
 
             const { error } = await supabase
@@ -310,6 +333,8 @@ export default function ClassDetail() {
             setNewAssignmentTitle("");
             setNewAssignmentDesc("");
             setNewAssignmentDueDate("");
+            setGeneratedQuestions([]);
+            setIsAIWizardOpen(false);
             setShowAssignmentForm(false);
             fetchAssignments();
         } catch (error: any) {
@@ -682,9 +707,100 @@ export default function ClassDetail() {
                 <TabsContent value="tasks" className="space-y-6">
                     {/* Assignment Controls for Teachers */}
                     {isTeacher && !showAssignmentForm && (
-                        <Button onClick={() => setShowAssignmentForm(true)} className="w-full h-16 border-dashed border-2 bg-transparent hover:bg-gray-50 text-gray-600 gap-2">
-                            <Plus className="w-5 h-5" /> Yeni Ödev Tanımla
-                        </Button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Button
+                                onClick={() => setShowAssignmentForm(true)}
+                                className="h-16 border-dashed border-2 bg-transparent hover:bg-gray-50 text-gray-600 gap-2 border-gray-200"
+                            >
+                                <Plus className="w-5 h-5" /> Klasik Ödev Tanımla
+                            </Button>
+
+                            <Dialog open={isAIWizardOpen} onOpenChange={setIsAIWizardOpen}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        className="h-16 border-dashed border-2 bg-violet-50 hover:bg-violet-100 text-violet-700 gap-2 border-violet-200"
+                                    >
+                                        <Wand2 className="w-5 h-5" /> AI Ödev Sihirbazı
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[600px] overflow-y-auto max-h-[90vh]">
+                                    <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                            <Sparkles className="w-6 h-6 text-violet-600" /> AI Ödev Sihirbazı
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            Konuyu girin, AI saniyeler içinde interaktif bir quiz oluştursun.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <div className="space-y-4 py-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Ders</Label>
+                                                <Input value={aiSubject} onChange={(e) => setAiSubject(e.target.value)} placeholder="Örn: Fizik" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Zorluk</Label>
+                                                <select
+                                                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                                                    value={aiLevel}
+                                                    onChange={(e) => setAiLevel(e.target.value)}
+                                                >
+                                                    <option value="easy">Kolay</option>
+                                                    <option value="medium">Orta</option>
+                                                    <option value="hard">Zor</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Konu / Ünite</Label>
+                                            <Input
+                                                value={aiTopic}
+                                                onChange={(e) => setAiTopic(e.target.value)}
+                                                placeholder="Örn: Newton Yasaları, Hücre Bölünmesi..."
+                                            />
+                                        </div>
+
+                                        {!generatedQuestions.length ? (
+                                            <Button
+                                                onClick={handleGenerateAIContent}
+                                                disabled={isGeneratingAI || !aiTopic}
+                                                className="w-full bg-violet-600 hover:bg-violet-700 h-12"
+                                            >
+                                                {isGeneratingAI ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                                                Soru Setini Oluştur
+                                            </Button>
+                                        ) : (
+                                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                                <div className="p-4 bg-violet-50 rounded-xl border border-violet-100">
+                                                    <p className="text-xs font-bold text-violet-700 uppercase mb-3">Önizleme ({generatedQuestions.length} Soru)</p>
+                                                    <div className="space-y-3">
+                                                        {generatedQuestions.slice(0, 3).map((q, i) => (
+                                                            <div key={i} className="text-xs">
+                                                                <p className="font-bold">{i + 1}. {q.question}</p>
+                                                                <p className="text-muted-foreground mt-1">✓ {q.options[q.correctIndex]}</p>
+                                                            </div>
+                                                        ))}
+                                                        {generatedQuestions.length > 3 && <p className="text-[10px] text-center text-violet-400">...ve {generatedQuestions.length - 3} soru daha</p>}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label>Teslim Tarihi</Label>
+                                                    <Input type="datetime-local" value={newAssignmentDueDate} onChange={(e) => setNewAssignmentDueDate(e.target.value)} />
+                                                </div>
+
+                                                <div className="flex gap-2 pt-2">
+                                                    <Button variant="outline" className="flex-1" onClick={() => setGeneratedQuestions([])}>Yeniden Dene</Button>
+                                                    <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleCreateAssignment(true)}>Sınıfa Yayınla</Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
                     )}
 
                     {showAssignmentForm && (
@@ -722,7 +838,7 @@ export default function ClassDetail() {
                             </CardContent>
                             <CardFooter className="flex justify-end gap-3">
                                 <Button variant="ghost" onClick={() => setShowAssignmentForm(false)}>İptal</Button>
-                                <Button onClick={handleCreateAssignment} disabled={isCreatingAssignment}>
+                                <Button onClick={() => handleCreateAssignment()} disabled={isCreatingAssignment}>
                                     {isCreatingAssignment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                                     Ödevi Yayınla
                                 </Button>

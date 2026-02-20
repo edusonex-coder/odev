@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   User, Settings, LogOut, Trophy, Flame, Star, ChevronRight,
-  BookOpen, Loader2, Edit2, Save, X, ShieldCheck, Copy, Award
+  BookOpen, Loader2, Edit2, Save, X, ShieldCheck, Copy, Award,
+  ScrollText, Download, Share2, Verified, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +29,18 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import SEO from "@/components/SEO";
+import { checkAndIssueCertificates } from "@/lib/certificateEngine";
+
+interface Certificate {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  certificate_code: string;
+  ai_commendation: string;
+  created_at: string;
+  metadata: any;
+}
 
 interface BadgeData {
   id: string;
@@ -47,13 +60,32 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [badges, setBadges] = useState<BadgeData[]>([]);
   const [badgesLoading, setBadgesLoading] = useState(true);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (profile?.id) {
       fetchBadges();
+      fetchCertificates();
+      checkAndIssueCertificates(profile.id); // Arka planda yeni kazanım var mı kontrol et
     }
   }, [profile?.id]);
+
+  const fetchCertificates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCertificates(data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchBadges = async () => {
     try {
@@ -322,7 +354,7 @@ export default function Profile() {
         </motion.div>
       )}
 
-      {/* Badges System (Real Integration) */}
+      {/* Badges System */}
       {profile?.role === 'student' && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -331,8 +363,8 @@ export default function Profile() {
           className="space-y-4"
         >
           <div className="flex items-center justify-between px-1">
-            <h3 className="font-black text-base uppercase tracking-tight flex items-center gap-2">
-              <Award className="w-5 h-5 text-accent" /> Başarı Rozetleri
+            <h3 className="font-black text-base uppercase tracking-tight flex items-center gap-2 text-slate-800">
+              <Award className="w-5 h-5 text-indigo-500" /> Başarı Rozetleri
             </h3>
             <span className="text-[10px] font-bold text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">
               {badges.filter(b => b.earned).length} / {badges.length}
@@ -341,47 +373,140 @@ export default function Profile() {
 
           <div className="grid grid-cols-4 gap-4">
             {badgesLoading ? (
-              // Badge Skeletons
               [...Array(4)].map((_, i) => (
                 <div key={i} className="bg-slate-50 rounded-2xl p-4 border border-dashed border-slate-200 animate-pulse h-24" />
               ))
             ) : (
-              badges.map((b) => (
+              badges.slice(0, 8).map((b) => (
                 <motion.div
                   key={b.id}
                   whileHover={b.earned ? { scale: 1.05 } : {}}
-                  className={`bg-white rounded-2xl p-4 border shadow-sm text-center relative group transition-all duration-300 ${!b.earned ? "grayscale opacity-30 hover:opacity-50" : "hover:shadow-md border-primary/10"}`}
+                  className={`bg-white rounded-2xl p-4 border shadow-sm text-center relative group transition-all duration-300 ${!b.earned ? "grayscale opacity-30 group-hover:opacity-100" : "hover:shadow-md border-indigo-100"}`}
                 >
                   <div className={`text-3xl mb-1 transition-transform duration-500 ${b.earned ? "group-hover:rotate-12" : ""}`}>
                     {b.icon}
                   </div>
                   <p className="text-[10px] font-black uppercase tracking-tight leading-tight">{b.name}</p>
-
-                  {!b.earned && (
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/60 backdrop-blur-[1px] rounded-2xl">
-                      <p className="text-[8px] font-bold px-2 text-slate-600">{b.description}</p>
-                    </div>
-                  )}
-
-                  {b.earned && (
-                    <div className="absolute -top-1 -right-1">
-                      <div className="bg-green-500 text-white p-0.5 rounded-full shadow-sm">
-                        <ShieldCheck className="w-3 h-3" />
-                      </div>
-                    </div>
-                  )}
                 </motion.div>
               ))
             )}
           </div>
-
-          {badges.length === 0 && !badgesLoading && (
-            <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed text-muted-foreground text-xs italic">
-              Henüz rozet sistemi tanımlanmamış.
-            </div>
-          )}
         </motion.div>
       )}
+
+      {/* Certificates Section (PREMIUM) */}
+      {profile?.role === 'student' && certificates.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between px-1">
+            <h3 className="font-black text-base uppercase tracking-tight flex items-center gap-2 text-slate-800">
+              <Verified className="w-5 h-5 text-amber-500" /> Akademik Sertifikalar
+            </h3>
+            <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] font-bold">
+              {certificates.length} BELGE
+            </Badge>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x no-scrollbar">
+            {certificates.map((cert) => (
+              <motion.div
+                key={cert.id}
+                whileHover={{ y: -5 }}
+                onClick={() => setSelectedCert(cert)}
+                className="flex-shrink-0 w-64 snap-start cursor-pointer group"
+              >
+                <div className="bg-gradient-to-br from-amber-50 to-white p-5 rounded-3xl border-2 border-amber-200 shadow-sm transition-all group-hover:shadow-xl group-hover:border-amber-400 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-amber-200/20 rounded-full translate-x-1/2 -translate-y-1/2 blur-xl" />
+
+                  <div className="bg-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-amber-100 mb-4 transform group-hover:rotate-12 transition-transform">
+                    <ScrollText className="w-6 h-6 text-amber-600" />
+                  </div>
+
+                  <h4 className="font-black text-sm text-slate-800 mb-1 leading-tight">{cert.title}</h4>
+                  <p className="text-[10px] text-slate-500 font-medium line-clamp-2 mb-4">{cert.description}</p>
+
+                  <div className="flex items-center justify-between border-t border-amber-100 pt-3">
+                    <span className="text-[9px] font-mono text-amber-700 bg-amber-100/50 px-2 py-0.5 rounded leading-none">
+                      {cert.certificate_code}
+                    </span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full group-hover:bg-amber-500 group-hover:text-white">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Certificate Viewer Modal */}
+      <Dialog open={!!selectedCert} onOpenChange={(open) => !open && setSelectedCert(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-slate-900 border-0 rounded-3xl">
+          {selectedCert && (
+            <div className="relative p-1 bg-gradient-to-br from-amber-400 via-yellow-200 to-amber-600">
+              <div className="bg-white rounded-[22px] p-8 md:p-12 text-center relative overflow-hidden">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 left-0 w-64 h-64 bg-amber-50 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl opacity-50" />
+                <div className="absolute bottom-0 right-0 w-48 h-48 bg-amber-50 rounded-full translate-x-1/3 translate-y-1/3 blur-3xl opacity-50" />
+
+                <div className="relative z-10 border-4 border-double border-amber-200 p-8 rounded-xl bg-white/40 backdrop-blur-sm">
+                  <div className="flex justify-center mb-6">
+                    <div className="bg-amber-500 p-4 rounded-full shadow-2xl ring-8 ring-amber-100">
+                      <Award className="w-10 h-10 text-white" />
+                    </div>
+                  </div>
+
+                  <h5 className="text-amber-600 font-black tracking-[0.2em] uppercase text-xs mb-6">BAŞARI SERTİFİKASI</h5>
+
+                  <div className="space-y-2 mb-8">
+                    <p className="text-slate-500 font-medium italic">Bu belge, üstün gayretleri neticesinde</p>
+                    <h3 className="text-3xl font-black text-slate-800 tracking-tight">{profile?.full_name}</h3>
+                    <p className="text-slate-500 font-medium italic">tarafından kazanılmıştır.</p>
+                  </div>
+
+                  <div className="py-6 border-y border-amber-100 mb-8 px-4">
+                    <h4 className="text-xl font-black text-slate-800 mb-2 uppercase">{selectedCert.title}</h4>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{selectedCert.description}</p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-dashed border-amber-200 mb-8 italic text-xs text-slate-600 leading-relaxed">
+                    <Sparkles className="w-3 h-3 text-amber-500 mb-1 mx-auto" />
+                    "{selectedCert.ai_commendation}"
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4">
+                    <div className="text-left">
+                      <p>TARİH</p>
+                      <p className="text-slate-800 font-black">{new Date(selectedCert.created_at).toLocaleDateString('tr-TR')}</p>
+                    </div>
+                    <div>
+                      <Verified className="w-12 h-12 text-amber-500 opacity-20" />
+                    </div>
+                    <div className="text-right">
+                      <p>DOĞRULAMA KODU</p>
+                      <p className="text-amber-600 font-mono font-black">{selectedCert.certificate_code}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-center mt-8 relative z-10 no-print">
+                  <Button variant="outline" className="gap-2 rounded-xl" onClick={() => window.print()}>
+                    <Download className="w-4 h-4" /> İndir / Yazdır
+                  </Button>
+                  <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                    <Share2 className="w-4 h-4" /> Paylaş
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Menu Items */}
       <motion.div

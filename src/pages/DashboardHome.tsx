@@ -68,6 +68,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import SEO from "@/components/SEO";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface Assignment {
   id: string;
@@ -128,12 +129,16 @@ export default function DashboardHome() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [dailyQuest, setDailyQuest] = useState({ questions: 0, chats: 0, claimed: false });
 
   // Gamification stats from real profile data
   const currentXp = profile?.xp || 0;
   const currentLevel = profile?.level || 1;
   const nextLevelXp = currentLevel * 1000;
   const progressToNextLevel = ((currentXp % 1000) / 1000) * 100;
+
+  const [badges, setBadges] = useState<any[]>([]);
+  const [badgesLoading, setBadgesLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && profile) {
@@ -148,9 +153,32 @@ export default function DashboardHome() {
         fetchUserStats();
         fetchAssignments();
         fetchAnnouncements();
+        fetchUserBadges();
       }
     }
   }, [profile, loading, navigate]);
+
+  const fetchUserBadges = async () => {
+    if (!profile?.id) return;
+    try {
+      setBadgesLoading(true);
+      // 1. Tüm rozetleri çek
+      const { data: allBadges } = await supabase.from('badges').select('*').limit(6);
+      // 2. Kazanılanları çek
+      const { data: userBadges } = await supabase.from('user_badges').select('badge_id').eq('user_id', profile.id);
+
+      const earnedIds = new Set(userBadges?.map(ub => ub.badge_id));
+      const combined = (allBadges || []).map(b => ({
+        ...b,
+        earned: earnedIds.has(b.id)
+      }));
+      setBadges(combined);
+    } catch (e) {
+      console.error("Badges error:", e);
+    } finally {
+      setBadgesLoading(false);
+    }
+  };
 
   const fetchAnnouncements = async () => {
     if (!profile?.tenant_id) return;
@@ -185,26 +213,45 @@ export default function DashboardHome() {
         streak: profile?.streak || 0
       }));
 
+      // Günlük görev durumunu çek
+      const { data: questData } = await supabase.rpc('get_daily_quest_status', { p_student_id: user.id });
+      if (questData && questData[0]) {
+        setDailyQuest({
+          questions: questData[0].questions_solved,
+          chats: questData[0].socratic_chats,
+          claimed: questData[0].is_bonus_claimed
+        });
+      }
+
       // Haftalık XP grafiği için RPC fonksiyonunu kullan (get_student_daily_xp)
-      const { data: xpData, error: xpError } = await supabase
+      const { data: xpData } = await supabase
         .rpc('get_student_daily_xp', {
           p_student_id: user.id,
           p_days: 7
         });
 
-      if (xpError) throw xpError;
-
-      if (xpData) {
-        // RPC'den gelen veriyi grafiğe uygun formata çevir
-        const formattedChartData = xpData.map((d: any) => ({
-          name: d.day_name,
-          puan: d.total_xp
-        }));
-        setWeeklyXp(formattedChartData);
-      }
+      setWeeklyXp(xpData ? xpData.map((d: any) => ({ name: d.day_name, puan: d.total_xp })) : defaultActivityData);
     } catch (err) {
       console.error("Stats fetching error:", err);
-      setWeeklyXp(defaultActivityData); // Hata durumunda boş grafik
+      setWeeklyXp(defaultActivityData);
+    }
+  };
+
+  const handleClaimBonus = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase.rpc('claim_daily_quest_bonus', { p_student_id: user.id });
+      if (error) throw error;
+
+      if (data.success) {
+        toast({ title: "Tebrikler! 🎉", description: data.message });
+        setDailyQuest(prev => ({ ...prev, claimed: true }));
+        fetchUserStats(); // XP güncellensin
+      } else {
+        toast({ title: "Bilgi", description: data.message, variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Hata", description: "Ödül alınırken bir sorun oluştu.", variant: "destructive" });
     }
   };
 
@@ -750,22 +797,35 @@ export default function DashboardHome() {
               <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-3">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-bold">3 Soru Çöz</span>
-                  <Badge variant="secondary" className="bg-violet-100 text-violet-700 font-bold">+50 XP</Badge>
+                  <Badge variant="secondary" className={cn("font-bold", dailyQuest.questions >= 3 ? "bg-green-100 text-green-700" : "bg-violet-100 text-violet-700")}>
+                    {dailyQuest.questions >= 3 ? "✓" : "+50 XP"}
+                  </Badge>
                 </div>
-                <Progress value={(Math.min(stats.solved, 3) / 3) * 100} className="h-1.5" />
-                <p className="text-[10px] text-right font-medium text-gray-500">{Math.min(stats.solved, 3)}/3</p>
+                <Progress value={(Math.min(dailyQuest.questions, 3) / 3) * 100} className="h-1.5" />
+                <p className="text-[10px] text-right font-medium text-gray-500">{Math.min(dailyQuest.questions, 3)}/3</p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-3">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-bold">1 Sokratik Sohbet</span>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">+20 XP</Badge>
+                  <Badge variant="secondary" className={cn("font-bold", dailyQuest.chats >= 1 ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700")}>
+                    {dailyQuest.chats >= 1 ? "✓" : "+20 XP"}
+                  </Badge>
                 </div>
-                <Progress value={0} className="h-1.5" />
-                <p className="text-[10px] text-right font-medium text-gray-500">0/1</p>
+                <Progress value={(Math.min(dailyQuest.chats, 1) / 1) * 100} className="h-1.5" />
+                <p className="text-[10px] text-right font-medium text-gray-500">{Math.min(dailyQuest.chats, 1)}/1</p>
               </div>
             </CardContent>
-            <CardFooter className="bg-indigo-600 text-white p-3 text-center text-[10px] font-bold">
-              HEPSİNİ TAMAMLA, SÜRPRİZ KUTU KAZAN! 🎁
+            <CardFooter className={cn(
+              "p-3 text-center transition-all duration-500",
+              dailyQuest.claimed ? "bg-slate-200 text-slate-500" :
+                (dailyQuest.questions >= 3 && dailyQuest.chats >= 1) ? "bg-green-600 text-white cursor-pointer hover:bg-green-700" : "bg-indigo-600 text-white"
+            )}
+              onClick={() => (dailyQuest.questions >= 3 && dailyQuest.chats >= 1 && !dailyQuest.claimed) && handleClaimBonus()}
+            >
+              <div className="w-full text-[10px] font-black uppercase flex items-center justify-center gap-2">
+                {dailyQuest.claimed ? "BUGÜNKÜ HEDİYENİ ALDIN! 🌟" :
+                  (dailyQuest.questions >= 3 && dailyQuest.chats >= 1) ? "HEDİYEYİ ALMAK İÇİN TIKLA! 🎁" : "HEPSİNİ TAMAMLA, SÜRPRİZ KUTU KAZAN! 🎁"}
+              </div>
             </CardFooter>
           </Card>
 
@@ -786,28 +846,44 @@ export default function DashboardHome() {
           </div>
 
           <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" /> Rozet Kütüphanesi
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-yellow-500" /> Rozet Kütüphanesi
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { e: '🚀', n: 'Yolcu', l: false },
-                  { e: '⚡', n: 'Hızlı', l: true },
-                  { e: '🔥', n: 'Seri', l: false },
-                  { e: '🧠', n: 'Daha', l: true },
-                  { e: '🏆', n: 'Usta', l: true },
-                  { e: '💎', n: 'Ender', l: true },
-                ].map((b, i) => (
-                  <div key={i} className={`flex flex-col items-center p-2 rounded-xl border ${b.l ? 'opacity-30 grayscale bg-gray-50' : 'bg-yellow-50 border-yellow-200'}`}>
-                    <span className="text-xl">{b.e}</span>
-                    <span className="text-[8px] font-bold mt-1 text-gray-600 uppercase">{b.n}</span>
-                  </div>
-                ))}
+                {badgesLoading ? (
+                  [...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)
+                ) : badges.length > 0 ? (
+                  badges.slice(0, 6).map((badge) => (
+                    <div
+                      key={badge.id}
+                      title={`${badge.name}: ${badge.description}`}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${badge.earned
+                        ? "bg-white border-yellow-100 shadow-sm"
+                        : "bg-slate-50 border-slate-100 grayscale opacity-40"
+                        }`}
+                    >
+                      <span className="text-xl mb-1">{badge.icon}</span>
+                      <span className="text-[8px] font-black uppercase text-center leading-none">{badge.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center col-span-3 py-4">Henüz rozet yok.</p>
+                )}
               </div>
             </CardContent>
+            <CardFooter className="pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-[10px] font-black uppercase tracking-tighter"
+                onClick={() => navigate('/dashboard/profile')}
+              >
+                TÜMÜNE BAK <ChevronRight className="w-3 h-3 ml-1" />
+              </Button>
+            </CardFooter>
           </Card>
 
           <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl relative overflow-hidden group">

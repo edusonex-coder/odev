@@ -167,7 +167,7 @@ async function makeAIRequest(
     let primaryProvider = getActiveProvider();
 
     // Low-Priority tasks should use cheapest stable model
-    const lowPriorityFeatures = ["announcement_enhancer", "announcement_summary", "general_chat"];
+    const lowPriorityFeatures = ["announcement_enhancer", "announcement_summary", "general_chat", "socratic_quiz"];
     const visionFeatures = ["elite_vision_ocr"];
 
     if (visionFeatures.includes(featureName)) {

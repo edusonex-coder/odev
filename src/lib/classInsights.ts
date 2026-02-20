@@ -39,7 +39,7 @@ export interface ClassInsight {
 }
 
 /**
- * Sınıfın zayıf konularını analiz eder ve AI önerileri oluşturur
+ * Sınıfın zayıf konularını analiz eder ve AI önerileri oluşturur (Tek seferlik AI çağrısı ile optimize edildi)
  */
 export async function analyzeClassPerformance(
     weakTopics: WeakTopic[],
@@ -47,117 +47,58 @@ export async function analyzeClassPerformance(
     className: string
 ): Promise<ClassInsight> {
     try {
-        // Zayıf ve güçlü konuları ayır
-        const weak = weakTopics.filter(t => t.difficulty_score > 0.6);
-        const strong = weakTopics.filter(t => t.difficulty_score < 0.4).map(t => t.topic);
-
-        // Ortalama başarı oranını hesapla
         const avgSuccess = studentMetrics.length > 0
             ? studentMetrics.reduce((sum, s) => sum + s.success_rate, 0) / studentMetrics.length
             : 0;
 
-        // AI'dan pedagojik öneriler al
-        const aiRecommendations = await generateTeachingRecommendations(weak, className, avgSuccess);
+        const topicList = weakTopics.map(t =>
+            `- ${t.topic} (Zorluk: ${(t.difficulty_score * 100).toFixed(0)}%, ${t.student_count} öğrenci)`
+        ).join('\n');
 
-        // Önerilen alıştırmalar oluştur
-        const suggestedExercises = await generateExerciseSuggestions(weak);
+        const prompt = `Sen uzman bir eğitim analistisin. ${className} sınıfının verilerini analiz edip JSON formatında bir rapor sunmalısın.
+
+VERİLER:
+- Ortalama Başarı: %${(avgSuccess * 100).toFixed(1)}
+- Konu Bazlı Durum:
+${topicList}
+
+GÖREV:
+Aşağıdaki yapıda bir JSON objesi döndür:
+{
+  "recommendation": "Öğretmen için 3-4 maddelik pedagojik strateji metni",
+  "exercises": [
+    {
+      "topic": "Konu Adı",
+      "type": "Alıştırma Türü",
+      "difficulty": "easy|medium|hard",
+      "description": "Kısa açıklama"
+    }
+  ],
+  "strong_topics": ["En başarılı olunan 2 konu"]
+}
+
+Sadece JSON döndür. Başka açıklama ekleme.`;
+
+        const response = await askAI(prompt, "Sen uzman bir eğitim analistisin. Sadece JSON döner ve net eğitim stratejileri üretirsin.", "teacher_analytics");
+
+        // JSON Ayıklama
+        const jsonMatch = response.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+
+        if (!data) throw new Error("AI geçerli bir analiz üretemedi.");
 
         return {
-            weak_topics: weak,
-            strong_topics: strong,
+            weak_topics: weakTopics.filter(t => t.difficulty_score > 0.5),
+            strong_topics: data.strong_topics || [],
             average_success_rate: Math.round(avgSuccess * 100) / 100,
             total_questions_analyzed: studentMetrics.reduce((sum, s) => sum + s.total_questions, 0),
-            ai_recommendations: aiRecommendations,
-            suggested_exercises: suggestedExercises,
+            ai_recommendations: data.recommendation || "Analiz tamamlandı.",
+            suggested_exercises: data.exercises || [],
         };
     } catch (error) {
         console.error("Class performance analysis error:", error);
         throw new Error("Sınıf analizi sırasında bir hata oluştu.");
     }
-}
-
-/**
- * AI ile öğretmene pedagojik öneriler oluşturur
- */
-async function generateTeachingRecommendations(
-    weakTopics: WeakTopic[],
-    className: string,
-    avgSuccessRate: number
-): Promise<string> {
-    if (weakTopics.length === 0) {
-        return "🎉 Harika! Sınıfınız tüm konularda başarılı. Öğrencilerinizi tebrik edin ve daha ileri seviye konulara geçebilirsiniz.";
-    }
-
-    const topicList = weakTopics.map(t =>
-        `- ${t.topic} (Zorluk: ${(t.difficulty_score * 100).toFixed(0)}%, ${t.student_count} öğrenci)`
-    ).join('\n');
-
-    const prompt = `Sen deneyimli bir eğitim danışmanısın. Bir öğretmene sınıfının performansı hakkında pedagojik öneriler sunuyorsun.
-
-SINIF BİLGİLERİ:
-- Sınıf: ${className}
-- Ortalama Başarı Oranı: ${(avgSuccessRate).toFixed(1)}%
-- Zayıf Konular:
-${topicList}
-
-GÖREV:
-1. Zayıf konuları analiz et
-2. Öğretmene bu konuları güçlendirmek için 3-4 somut, uygulanabilir öneri sun
-3. Sokratik öğrenme ve aktif katılım yöntemlerini öner
-4. Pozitif ve motive edici bir dil kullan
-
-ÖNERİLER (Maksimum 300 kelime):`;
-
-    const response = await askAI(prompt, "Sen deneyimli bir eğitim danışmanısın. Bir öğretmene sınıfının performansı hakkında pedagojik öneriler sunuyorsun.");
-
-    return response || "AI önerileri oluşturulamadı.";
-}
-
-/**
- * Zayıf konular için önerilen alıştırmalar oluşturur
- */
-async function generateExerciseSuggestions(
-    weakTopics: WeakTopic[]
-): Promise<ClassInsight['suggested_exercises']> {
-    if (weakTopics.length === 0) return [];
-
-    const exercises: ClassInsight['suggested_exercises'] = [];
-
-    for (const topic of weakTopics.slice(0, 3)) { // İlk 3 zayıf konu için
-        const prompt = `Konu: ${topic.topic}
-
-Bu konu için öğrencilerin pratik yapabileceği 1 alıştırma türü öner.
-Sadece alıştırma türünü ve kısa açıklamasını yaz (maksimum 50 kelime).
-
-Format:
-Alıştırma Türü: [tür]
-Açıklama: [açıklama]`;
-
-        try {
-            const response = await askAI(prompt, "Sen bir eğitim materyali tasarımcısısın. Konulara göre etkili alıştırmalar önerirsin.");
-
-            const typeMatch = response.match(/Alıştırma Türü:\s*(.+)/i);
-            const descMatch = response.match(/Açıklama:\s*(.+)/i);
-
-            exercises.push({
-                topic: topic.topic,
-                exercise_type: typeMatch?.[1]?.trim() || "Pratik Soruları",
-                difficulty: topic.difficulty_score > 0.8 ? 'easy' :
-                    topic.difficulty_score > 0.6 ? 'medium' : 'hard',
-                description: descMatch?.[1]?.trim() || response.substring(0, 100),
-            });
-        } catch (error) {
-            console.error(`Exercise generation error for ${topic.topic}:`, error);
-            exercises.push({
-                topic: topic.topic,
-                exercise_type: "Pratik Soruları",
-                difficulty: 'medium',
-                description: "Bu konuyla ilgili çeşitli sorular çözün.",
-            });
-        }
-    }
-
-    return exercises;
 }
 
 /**

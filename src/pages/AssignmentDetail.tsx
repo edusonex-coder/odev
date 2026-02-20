@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { VoiceReader } from "@/components/VoiceReader";
 import {
     ArrowLeft,
     Calendar,
@@ -34,6 +35,8 @@ interface Assignment {
     due_date: string | null;
     status: string;
     created_at: string;
+    type: 'classic' | 'interactive';
+    content_json: any;
 }
 
 interface Submission {
@@ -48,6 +51,7 @@ interface Submission {
     profiles?: {
         full_name: string | null;
     };
+    ai_feedback?: string | null; // Added for AI feedback
 }
 
 export default function AssignmentDetail() {
@@ -73,6 +77,12 @@ export default function AssignmentDetail() {
     const [feedbackInput, setFeedbackInput] = useState(""); // New field
     const [isGrading, setIsGrading] = useState(false);
     const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+
+    // Quiz states
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [userAnswers, setUserAnswers] = useState<number[]>([]);
+    const [quizFinished, setQuizFinished] = useState(false);
+    const [quizScore, setQuizScore] = useState(0);
 
     const isTeacher = profile?.role === 'teacher';
 
@@ -211,6 +221,54 @@ export default function AssignmentDetail() {
         }
     };
 
+    const handleQuizOptionClick = (optionIndex: number) => {
+        const newAnswers = [...userAnswers];
+        newAnswers[currentQuestionIndex] = optionIndex;
+        setUserAnswers(newAnswers);
+    };
+
+    const handleQuizSubmit = async () => {
+        if (!assignment || !user || userAnswers.length !== assignment.content_json.length) return;
+        setIsSubmitting(true);
+        try {
+            // Calculate score
+            let correct = 0;
+            assignment.content_json.forEach((q: any, i: number) => {
+                if (userAnswers[i] === q.correctIndex) correct++;
+            });
+            const score = Math.round((correct / assignment.content_json.length) * 100);
+
+            setQuizScore(score);
+            setQuizFinished(true);
+
+            // Submit results
+            const { error } = await supabase
+                .from('assignment_submissions')
+                .upsert({
+                    assignment_id: id,
+                    student_id: user.id,
+                    content: `Quiz Tamamlandı: %${score} Başarı`,
+                    submission_files: {
+                        answers: userAnswers,
+                        correct_count: correct,
+                        total_count: assignment.content_json.length
+                    },
+                    status: 'graded', // Auto-grade for quizzes
+                    score: score
+                });
+
+            if (error) throw error;
+
+            toast({ title: "Quiz Tamamlandı! 🎉", description: `Notun: ${score}` });
+            grantXP(user.id, score >= 70 ? XP_VALUES.PERFECT_GRADE : XP_VALUES.ASSIGNMENT_SUBMISSION);
+            fetchAssignmentDetails();
+        } catch (error: any) {
+            toast({ title: "Hata", description: "Sonuçlar kaydedilemedi.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSubmitAssignment = async () => {
         if ((!content.trim() && !selectedFile) || !user || !id) return;
         setIsSubmitting(true);
@@ -305,9 +363,12 @@ export default function AssignmentDetail() {
                             <h4 className="font-bold mb-3 flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-primary" /> Ödev Açıklaması
                             </h4>
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            <CardDescription className="text-sm text-slate-600 leading-relaxed mt-2 whitespace-pre-wrap">
                                 {assignment.description || "Bu ödev için bir açıklama girilmemiş."}
-                            </p>
+                            </CardDescription>
+                            <div className="mt-4">
+                                <VoiceReader text={assignment.description || ""} variant="secondary" size="sm" />
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -398,114 +459,203 @@ export default function AssignmentDetail() {
                         </Card>
                     )}
 
-                    {/* Student Submission Form */}
+                    {/* Student Submission Form / Quiz UI */}
                     {!isTeacher && (
-                        <Card className="shadow-md border-primary/20">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Upload className="w-5 h-5 text-primary" /> Ödevini Gönder
-                                </CardTitle>
-                                <CardDescription>Cevabını aşağıya yazabilirsin.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <Textarea
-                                    placeholder="Cevabını veya notlarını buraya yaz..."
-                                    className="min-h-[150px]"
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                    disabled={submission?.status === 'graded'}
-                                />
-
-                                {/* File Upload Area */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-medium flex items-center gap-2">
-                                        <File className="w-4 h-4 text-primary" /> Dosya Ekle (PDF, Resim vb.)
-                                    </label>
-
-                                    {!selectedFile && !submission?.file_url ? (
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                id="file-upload"
-                                                className="hidden"
-                                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                                disabled={submission?.status === 'graded'}
+                        <Card className="shadow-md border-primary/20 bg-white">
+                            {assignment.type === 'interactive' && !submission && !quizFinished ? (
+                                <div className="p-6 space-y-8">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <Badge variant="outline" className="text-primary border-primary/20">
+                                            Soru {currentQuestionIndex + 1} / {assignment.content_json.length}
+                                        </Badge>
+                                        <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary transition-all duration-300"
+                                                style={{ width: `${((currentQuestionIndex + 1) / assignment.content_json.length) * 100}%` }}
                                             />
-                                            <label
-                                                htmlFor="file-upload"
-                                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
-                                            >
-                                                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                                                <span className="text-xs text-gray-500 font-medium">Dosya seçmek için tıkla</span>
-                                                <span className="text-[10px] text-gray-400 mt-1">Maksimum 10MB</span>
-                                            </label>
                                         </div>
-                                    ) : (
-                                        <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-white rounded-lg shadow-sm">
-                                                    <FileText className="w-5 h-5 text-primary" />
-                                                </div>
-                                                <div className="max-w-[150px] md:max-w-[300px]">
-                                                    <p className="text-sm font-bold truncate">
-                                                        {selectedFile ? selectedFile.name : "Yüklenen Dosya"}
-                                                    </p>
-                                                    {submission?.file_url && (
-                                                        <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
-                                                            Görüntüle <ExternalLink className="w-2 h-2" />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-destructive"
-                                                onClick={() => {
-                                                    setSelectedFile(null);
-                                                }}
-                                                disabled={submission?.status === 'graded'}
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
 
-                                {isSubmitting && uploadProgress > 0 && (
-                                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                        <div
-                                            className="bg-primary h-full transition-all duration-300"
-                                            style={{ width: `${uploadProgress}%` }}
+                                    <div className="space-y-6">
+                                        <h3 className="text-xl font-bold leading-tight">
+                                            {assignment.content_json[currentQuestionIndex].question}
+                                        </h3>
+
+                                        <div className="grid gap-3">
+                                            {assignment.content_json[currentQuestionIndex].options.map((option: string, i: number) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => handleQuizOptionClick(i)}
+                                                    className={`w-full p-4 text-left rounded-xl border-2 transition-all flex items-center gap-3 ${userAnswers[currentQuestionIndex] === i
+                                                        ? 'border-primary bg-primary/5 shadow-sm scale-[1.01]'
+                                                        : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${userAnswers[currentQuestionIndex] === i ? 'bg-primary border-primary text-white' : 'border-gray-300 text-gray-400'
+                                                        }`}>
+                                                        {String.fromCharCode(65 + i)}
+                                                    </div>
+                                                    <span className="font-medium text-sm">{option}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-6 border-t">
+                                            <Button
+                                                variant="outline"
+                                                disabled={currentQuestionIndex === 0}
+                                                onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                                            >
+                                                Geri
+                                            </Button>
+
+                                            {currentQuestionIndex < assignment.content_json.length - 1 ? (
+                                                <Button
+                                                    disabled={userAnswers[currentQuestionIndex] === undefined}
+                                                    onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                                                >
+                                                    Sıradaki
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    className="bg-green-600 hover:bg-green-700"
+                                                    disabled={userAnswers.length !== assignment.content_json.length || isSubmitting}
+                                                    onClick={handleQuizSubmit}
+                                                >
+                                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                                    Quiz'i Bitir
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2 text-lg">
+                                            <Upload className="w-5 h-5 text-primary" /> {submission ? "Teslim Edildi" : "Ödevini Gönder"}
+                                        </CardTitle>
+                                        <CardDescription>{submission ? "Ödevin başarıyla sisteme kaydedildi." : "Cevabını aşağıya yazabilirsin."}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <Textarea
+                                            placeholder="Cevabını veya notlarını buraya yaz..."
+                                            className="min-h-[150px]"
+                                            value={content}
+                                            onChange={(e) => setContent(e.target.value)}
+                                            disabled={submission?.status === 'graded'}
                                         />
-                                    </div>
-                                )}
-                            </CardContent>
-                            <CardFooter className="flex justify-between items-center border-t pt-4">
-                                {submission ? (
-                                    <div className="flex items-center gap-2 text-green-600 text-sm font-bold">
-                                        <CheckCircle2 className="w-4 h-4" /> Ödev Teslim Edildi
-                                    </div>
-                                ) : (
-                                    <div className="text-xs text-muted-foreground italic">
-                                        {isPastDue ? "⚠️ Süresi dolmuş ödevler teslim edilebilir." : "Henüz teslim edilmedi."}
-                                    </div>
-                                )}
-                                <Button
-                                    onClick={handleSubmitAssignment}
-                                    disabled={isSubmitting || submission?.status === 'graded' || (!content.trim() && !selectedFile)}
-                                    className="gap-2"
-                                >
-                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {submission ? "Güncelle ve Gönder" : "Ödevi Teslim Et"}
-                                </Button>
-                            </CardFooter>
+
+                                        {/* File Upload Area */}
+                                        <div className="space-y-3">
+                                            <label className="text-sm font-medium flex items-center gap-2">
+                                                <File className="w-4 h-4 text-primary" /> Dosya Ekle (PDF, Resim vb.)
+                                            </label>
+
+                                            {!selectedFile && !submission?.file_url ? (
+                                                <div className="relative">
+                                                    <input
+                                                        type="file"
+                                                        id="file-upload"
+                                                        className="hidden"
+                                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                                        disabled={submission?.status === 'graded'}
+                                                    />
+                                                    <label
+                                                        htmlFor="file-upload"
+                                                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
+                                                    >
+                                                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <span className="text-xs text-gray-500 font-medium">Dosya seçmek için tıkla</span>
+                                                        <span className="text-[10px] text-gray-400 mt-1">Maksimum 10MB</span>
+                                                    </label>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/20">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                            <FileText className="w-5 h-5 text-primary" />
+                                                        </div>
+                                                        <div className="max-w-[150px] md:max-w-[300px]">
+                                                            <p className="text-sm font-bold truncate">
+                                                                {selectedFile ? selectedFile.name : "Yüklenen Dosya"}
+                                                            </p>
+                                                            {submission?.file_url && (
+                                                                <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                                                                    Görüntüle <ExternalLink className="w-2 h-2" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive"
+                                                        onClick={() => {
+                                                            setSelectedFile(null);
+                                                        }}
+                                                        disabled={submission?.status === 'graded'}
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {isSubmitting && uploadProgress > 0 && (
+                                            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className="bg-primary h-full transition-all duration-300"
+                                                    style={{ width: `${uploadProgress}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                    <CardFooter className="flex justify-between items-center border-t pt-4">
+                                        {submission ? (
+                                            <div className="flex items-center gap-2 text-green-600 text-sm font-bold">
+                                                <CheckCircle2 className="w-4 h-4" /> Ödev Teslim Edildi
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-muted-foreground italic">
+                                                {isPastDue ? "⚠️ Süresi dolmuş ödevler teslim edilebilir." : "Henüz teslim edilmedi."}
+                                            </div>
+                                        )}
+                                        <Button
+                                            onClick={handleSubmitAssignment}
+                                            disabled={isSubmitting || submission?.status === 'graded' || (!content.trim() && !selectedFile)}
+                                            className="gap-2"
+                                        >
+                                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                            {submission ? "Güncelle ve Gönder" : "Ödevi Teslim Et"}
+                                        </Button>
+                                    </CardFooter>
+                                </>
+                            )}
                         </Card>
                     )}
                 </div>
 
                 {/* Right Side: Status / Feedback */}
                 <div className="space-y-6">
+                    {!isTeacher && submission?.ai_feedback && (
+                        <Card className="bg-violet-50 border-violet-200 overflow-hidden">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm text-violet-800 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-violet-600" /> AI Akademik Analiz
+                                    </div>
+                                    <VoiceReader text={submission.ai_feedback} size="icon" variant="ghost" className="h-6 w-6 text-violet-700" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-xs text-violet-700 leading-relaxed italic">
+                                    "{submission.ai_feedback}"
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {!isTeacher && submission?.score && (
                         <Card className="bg-green-50 border-green-200">
                             <CardHeader>
