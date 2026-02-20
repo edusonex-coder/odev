@@ -65,7 +65,23 @@ WITH checks AS (
     
     UNION ALL
     
-    -- 5. Veri Tutarlılığı (CEO Analiz)
+    -- 5. Derin Sütun Kontrolü (Anti-Pattern Tespiti)
+    SELECT 'Şema Tutarlılığı', 'Solutions Table student_id check',
+           (CASE WHEN EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'solutions' AND column_name = 'student_id') 
+            THEN '❌ HATA: student_id solutions tablosunda olmamalı!' 
+            ELSE '✅ Sağlıklı: student_id sadece questions tablosunda.' END)
+            
+    UNION ALL
+
+    -- 6. Trigger Sağlığı
+    SELECT 'Trigger Sağlığı', tgname,
+           (CASE WHEN tgenabled = 'O' THEN '✅ Aktif' ELSE '⚠️ Devre Dışı' END)
+    FROM pg_trigger 
+    WHERE tgname IN ('trg_check_badges_on_solution', 'notify_parent_on_student_question')
+
+    UNION ALL
+    
+    -- 7. Veri Tutarlılığı (CEO Analiz)
     SELECT 'Finansal Veri', 'AI Cost Log',
            (CASE WHEN (SELECT COUNT(*) FROM ai_usage_logs WHERE cost_usd > 0) > 0 
             THEN '✅ Maliyet Verisi Mevcut' 

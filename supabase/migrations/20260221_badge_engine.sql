@@ -34,7 +34,8 @@ BEGIN
         v_user_id := NEW.user_id;
         SELECT xp INTO v_xp FROM profiles WHERE id = v_user_id;
     ELSIF TG_TABLE_NAME = 'solutions' THEN
-        v_user_id := NEW.student_id;
+        -- SOLUTIONS tablosunda student_id yoktur, questions üzerinden almalıyız
+        SELECT student_id INTO v_user_id FROM questions WHERE id = NEW.question_id;
         SELECT xp INTO v_xp FROM profiles WHERE id = v_user_id;
     END IF;
 
@@ -46,11 +47,11 @@ BEGIN
     -- KRİTER 2: İlk Adım (Her zaman verilir)
     PERFORM award_badge_if_not_exists(v_user_id, 'İlk Adım');
 
-    -- KRİTER 3: Matematik Kurdu (Eğer solutions tablosu tetiklediyse veya periyodikse)
+    -- KRİTER 3: Matematik Kurdu (Questions üzerinden kontrol edilir)
     SELECT COUNT(*) INTO v_math_count 
     FROM questions q
     JOIN solutions s ON s.question_id = q.id
-    WHERE s.student_id = v_user_id AND q.subject ILIKE '%matematik%';
+    WHERE q.student_id = v_user_id AND q.subject ILIKE '%matematik%';
     
     IF v_math_count >= 10 THEN
         PERFORM award_badge_if_not_exists(v_user_id, 'Matematik Kurdu');

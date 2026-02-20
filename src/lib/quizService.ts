@@ -18,7 +18,7 @@ export async function generateSocraticQuiz(studentId: string, subject: string): 
     // 1. Öğrencinin son sorularını getir (Bağlam için)
     let query = supabase
         .from('questions')
-        .select('question_text, ai_response')
+        .select('question_text')
         .eq('student_id', studentId);
 
     if (subject !== 'Genel') {
@@ -29,7 +29,7 @@ export async function generateSocraticQuiz(studentId: string, subject: string): 
         .order('created_at', { ascending: false })
         .limit(3);
 
-    const context = questions?.map(q => `Soru: ${q.question_text}\nCevap Özeti: ${q.ai_response?.substring(0, 100)}...`).join('\n\n') || "Henüz veri yok.";
+    const context = questions?.map(q => `Soru: ${q.question_text}`).join('\n\n') || "Henüz veri yok.";
 
     const prompt = `Sen Sokratik bir öğretmensin. Öğrencinin ${subject} dersindeki geçmişini analiz ederek ona 3 soruluk bir "Mini Eksik Kapatma Testi" hazırlayacaksın.
     

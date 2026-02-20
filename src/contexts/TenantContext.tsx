@@ -56,7 +56,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         .from('tenants')
                         .select('*')
                         .eq('slug', debugTenant)
-                        .single();
+                        .maybeSingle();
                     data = response.data;
                     error = response.error;
                 } else {
@@ -65,11 +65,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         .from('tenants')
                         .select('*')
                         .eq('domain', hostname)
-                        .single();
+                        .maybeSingle();
                     data = response.data;
                     error = response.error;
 
-                    if (error || !data) {
+                    if (!data && !error) {
                         // Fallback: Check subdomain for .edusonex.com.tr
                         const subdomain = hostname.split('.')[0];
                         if (subdomain && subdomain !== 'odev' && subdomain !== 'www') {
@@ -77,7 +77,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                                 .from('tenants')
                                 .select('*')
                                 .eq('slug', subdomain)
-                                .single();
+                                .maybeSingle();
                             data = subResponse.data;
                             error = subResponse.error;
                         }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowLeft, Clock, CheckCircle, Share2, MessageSquare, Loader2, Volume2, StopCircle, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,10 +36,9 @@ interface Solution {
 export default function QuestionDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user } = useAuth();
-    const [question, setQuestion] = useState<QuestionDetail | null>(null);
-    const [solutions, setSolutions] = useState<Solution[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { user, profile } = useAuth();
+    const queryClient = useQueryClient();
+
     const [speakingInfo, setSpeakingInfo] = useState<{ id: string, speaking: boolean } | null>(null);
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
     const [inputMessage, setInputMessage] = useState("");
@@ -48,6 +48,42 @@ export default function QuestionDetail() {
     const [similarQuestion, setSimilarQuestion] = useState<string | null>(null);
     const [isGeneratingSimilar, setIsGeneratingSimilar] = useState(false);
     const [sessionId, setSessionId] = useState<string | null>(null);
+
+    // 1. React Query: Soru Verilerini Çek (Caching Aktif)
+    const { data: question, isLoading: qLoading, error: qError } = useQuery({
+        queryKey: ["question", id],
+        queryFn: async () => {
+            if (!id) throw new Error("ID eksik");
+            const { data, error } = await supabase
+                .from("questions")
+                .select("*")
+                .eq("id", id)
+                .single();
+            if (error) throw error;
+            return data as QuestionDetail;
+        },
+        enabled: !!id && !!user,
+        staleTime: 1000 * 60 * 5, // 5 dakika cache'de kalsın
+    });
+
+    // 2. React Query: Çözümleri Çek
+    const { data: solutions = [], isLoading: sLoading } = useQuery({
+        queryKey: ["solutions", id],
+        queryFn: async () => {
+            if (!id) return [];
+            const { data, error } = await supabase
+                .from("solutions")
+                .select("*")
+                .eq("question_id", id)
+                .order("created_at", { ascending: false });
+            if (error && error.code !== 'PGRST116') throw error;
+            return data as Solution[];
+        },
+        enabled: !!id && !!user,
+        staleTime: 1000 * 60 * 2,
+    });
+
+    const loading = qLoading || sLoading;
 
     // Initialize or Load Question Chat Session
     useEffect(() => {
@@ -75,7 +111,7 @@ export default function QuestionDetail() {
                         .from('ai_chat_sessions')
                         .insert({
                             student_id: user.id,
-                            tenant_id: (user as any).tenant_id || (user as any).app_metadata?.tenant_id,
+                            tenant_id: profile?.tenant_id || (user as any).app_metadata?.tenant_id,
                             subject: question.subject,
                             topic: `Question Study: ${id}`,
                             metadata: { question_id: id }
@@ -93,49 +129,14 @@ export default function QuestionDetail() {
         if (!loading && question) {
             initQuestionChat();
         }
-    }, [id, user, loading, question]);
+    }, [id, user, loading, question, profile?.tenant_id]);
 
-    // 2. ID her değiştiğinde (yeni soruya geçildiğinde) 'çözüldü' işaretini kaldır
     useEffect(() => {
         autoSolveAttempted.current = false;
-    }, [id]);
-
-    // 3. Soru Verilerini Çek
-    useEffect(() => {
-        async function fetchQuestionData() {
-            if (!id || !user) return;
-            try {
-                const { data: qData, error: qError } = await supabase
-                    .from("questions")
-                    .select("*")
-                    .eq("id", id)
-                    .single();
-
-                if (qError) throw qError;
-                setQuestion(qData);
-
-                const { data: sData, error: sError } = await supabase
-                    .from("solutions")
-                    .select("*")
-                    .eq("question_id", id)
-                    .order("created_at", { ascending: false });
-
-                if (sError && sError.code !== 'PGRST116') throw sError;
-                setSolutions(sData || []);
-
-            } catch (error) {
-                console.error("Detay yüklenirken hata:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchQuestionData();
-
         return () => {
             window.speechSynthesis.cancel();
         };
-    }, [id, user]);
+    }, [id]);
 
     // 4. Otomatik Çözümleyici
     useEffect(() => {
@@ -160,7 +161,7 @@ export default function QuestionDetail() {
                                     .update({ question_text: extractedText })
                                     .eq("id", question.id);
 
-                                setQuestion(prev => prev ? { ...prev, question_text: extractedText } : prev);
+                                queryClient.setQueryData(["question", id], (old: any) => old ? { ...old, question_text: extractedText } : old);
                                 toast.success("Metin başarıyla dijitalleştirildi! ✨");
                             }
                         } catch (visionErr) {
@@ -186,15 +187,9 @@ export default function QuestionDetail() {
 
                 if (insertError) {
                     console.error("Çözüm kaydedilemedi:", insertError);
-                    const tempSolution: Solution = {
-                        id: "temp-ai-" + Date.now(),
-                        solution_text: aiResponseText,
-                        solver_type: "ai",
-                        created_at: new Date().toISOString()
-                    };
-                    setSolutions([tempSolution]);
                 } else {
-                    setSolutions([solData]);
+                    // Query'yi yenile ki yeni çözüm görünsün
+                    queryClient.invalidateQueries({ queryKey: ["solutions", id] });
                     await supabase.from("questions").update({ status: "ai_answered" }).eq("id", question.id);
                     toast.success("Çözüm hazır! 🎉");
                 }
