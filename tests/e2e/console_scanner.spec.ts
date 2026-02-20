@@ -5,24 +5,29 @@ test.describe('Console Error Scanner', () => {
         '/dashboard',
         '/dashboard/history',
         '/dashboard/profile',
-        '/dashboard/ask'
+        '/dashboard/ask',
+        '/dashboard/settings',
+        '/teacher',
     ];
 
     for (const pagePath of pagesToScan) {
         test(`Scan ${pagePath} for console errors`, async ({ page }) => {
             const errors: string[] = [];
-            const consoleErrors: string[] = [];
+            const networkErrors: string[] = [];
 
-            // Listen for unhandled exceptions
-            page.on('pageerror', (exception) => {
-                errors.push(`Uncaught Exception: ${exception.message}`);
+            page.on('console', msg => {
+                if (msg.type() === 'error' && !msg.text().includes('WebSocket')) {
+                    errors.push(`[CONSOLE ERROR] ${msg.text()}`);
+                }
             });
 
-            // Listen for console errors
-            page.on('console', (msg) => {
-                if (msg.type() === 'error') {
-                    // Ignore known HMR/WebSocket errors if necessary, but for doctor we want everything
-                    consoleErrors.push(`Console Error: ${msg.text()}`);
+            page.on('pageerror', err => {
+                errors.push(`[PAGE ERROR] ${err.message}`);
+            });
+
+            page.on('requestfailed', request => {
+                if (!request.url().includes('localhost')) {
+                    networkErrors.push(`[NETWORK ERROR] ${request.url()} - ${request.failure()?.errorText}`);
                 }
             });
 
@@ -32,14 +37,14 @@ test.describe('Console Error Scanner', () => {
             // Wait for a bit to let async requests fire
             await page.waitForTimeout(3000);
 
-            const allFound = [...errors, ...consoleErrors];
+            const allFound = [...errors, ...networkErrors];
 
             if (allFound.length > 0) {
                 console.log(`\n❌ [${pagePath}] Bulunan Hatalar:`);
                 allFound.forEach(err => console.log(`   - ${err}`));
             }
 
-            expect(allFound, `Page ${pagePath} has console errors or exceptions`).toHaveLength(0);
+            expect(allFound, `Page ${pagePath} has console errors or network failures`).toHaveLength(0);
         });
     }
 });

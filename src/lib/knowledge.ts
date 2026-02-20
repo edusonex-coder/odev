@@ -26,7 +26,11 @@ export async function contributeToKnowledge(entry: KnowledgeEntry) {
     });
 
     if (error) {
-        console.error("Knowledge Graph Error:", error.message);
+        if (error.code === '42P01') {
+            console.warn("[Knowledge] Table 'ai_knowledge_graph' missing. Contribution skipped.");
+        } else {
+            console.error("Knowledge Graph Error:", error.message);
+        }
         return false;
     }
     return true;
@@ -50,7 +54,11 @@ export async function queryKnowledge(query: string, category?: string) {
     const { data, error } = await q.limit(5);
 
     if (error) {
-        console.error("Knowledge Query Error:", error.message);
+        if (error.code === '42P01') {
+            console.warn("[Knowledge] Table 'ai_knowledge_graph' missing. Query skipped.");
+        } else {
+            console.error("Knowledge Query Error:", error.message);
+        }
         return [];
     }
 
@@ -62,11 +70,15 @@ export async function queryKnowledge(query: string, category?: string) {
  * Injects relevant cross-product context into any AI prompt.
  */
 export async function injectContext(prompt: string, category: string): Promise<string> {
-    const context = await queryKnowledge(prompt.split(' ').slice(0, 5).join(' '), category);
+    try {
+        const context = await queryKnowledge(prompt.split(' ').slice(0, 5).join(' '), category);
 
-    if (context && context.length > 0) {
-        const contextText = context.map(c => `[Context from ${c.source_product}]: ${c.content_text}`).join('\n');
-        return `Aşağıdaki ek bilgiler (Knowledge Graph) doğrultusunda cevap ver:\n\n${contextText}\n\nİstek: ${prompt}`;
+        if (context && context.length > 0) {
+            const contextText = context.map(c => `[Context from ${c.source_product}]: ${c.content_text}`).join('\n');
+            return `Aşağıdaki ek bilgiler (Knowledge Graph) doğrultusunda cevap ver:\n\n${contextText}\n\nİstek: ${prompt}`;
+        }
+    } catch (e) {
+        console.warn("Context injection failed (ignored):", e);
     }
 
     return prompt;

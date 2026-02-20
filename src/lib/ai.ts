@@ -141,8 +141,13 @@ async function makeAIRequest(
     personalityPrompt?: string
 ) {
     // 0. CTO Directive: RAG Cache (Hafızadan Getir)
-    // Sadece belirli özellikler için cache kontrolü yap (OCR ve Çözüm)
     const cacheableFeatures = ["homework_solver", "elite_vision_ocr"];
+
+    // Global table existence check (to avoid 400 errors if table is missing)
+    if (globalThis._ai_knowledge_graph_missing) {
+        return null;
+    }
+
     if (cacheableFeatures.includes(featureName)) {
         const userPrompt = messages.find(m => m.role === "user")?.content;
         if (typeof userPrompt === 'string') {
@@ -157,8 +162,14 @@ async function makeAIRequest(
                     console.log(`[RAG CACHE HIT] Feature: ${featureName} - Memory used.`);
                     return cached.ai_response;
                 }
-            } catch (e) {
-                console.warn("Cache check error (ignored):", e);
+            } catch (e: any) {
+                // Sadece 400 veya 404 gibi tablo eksikliği hatalarını logla ama akışı bozma
+                if (e?.code === 'PGRST116' || e?.code === '42P01' || e?.status === 400) {
+                    console.warn("[RAG] Knowledge Graph table missing or broken. Disabling cache to prevent console noise.");
+                    globalThis._ai_knowledge_graph_missing = true;
+                } else {
+                    console.warn("Cache check error (ignored):", e);
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
-# Edusonex ÖdevGPT
-
-AI Destekli Akıllı Eğitim Asistanı - Ödevlerini fotoğrafla, AI ile adım adım öğren!
+## 🏢 Edusonex Ekosistemi
+Bu proje, Edusonex bütüncül yapısının "Öğrenci & Eğitim" kanadıdır. Üst yönetim için **[Yonetim](../yonetim)**, satış/bayi kanalı için **[CRM](../crm)** projeleriyle entegre çalışır.
+Stratejik detaylar: **[SYSTEM_BRAIN.md](./docs/SYSTEM_BRAIN.md)**
 
 ## 🎯 Proje Hakkında
 
