@@ -45,7 +45,8 @@ import AdminBlogManager from "@/components/AdminBlogManager";
 import AnnouncementManager from "@/components/AnnouncementManager";
 import HoldingAnalytics from "@/components/HoldingAnalytics";
 import TenantManager from "@/components/TenantManager";
-import { BookOpenText, Megaphone, LayoutDashboard, Building2 } from "lucide-react";
+import AILedger from "@/components/AILedger";
+import { BookOpenText, Megaphone, LayoutDashboard, Building2, Coins } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -338,6 +339,9 @@ export default function AdminPanel() {
                     </TabsTrigger>
                     <TabsTrigger value="announcements" className="rounded-lg gap-2">
                         <Megaphone className="w-4 h-4" /> Duyurular
+                    </TabsTrigger>
+                    <TabsTrigger value="ai-ledger" className="rounded-lg gap-2">
+                        <Coins className="w-4 h-4 text-amber-600" /> AI Maliyet Defteri
                     </TabsTrigger>
                     {profile?.is_super_admin && (
                         <TabsTrigger value="holding" className="rounded-lg gap-2">
@@ -680,6 +684,10 @@ export default function AdminPanel() {
 
                 <TabsContent value="announcements">
                     <AnnouncementManager selectedTenantId={selectedTenantId} />
+                </TabsContent>
+
+                <TabsContent value="ai-ledger">
+                    <AILedger />
                 </TabsContent>
 
                 {profile?.is_super_admin && (
