@@ -83,7 +83,7 @@ export default function AskQuestion() {
       const text = await analyzeQuestionImage(base64Image, profile?.tenant_id || undefined);
 
       if (text && !text.startsWith("HATA:")) {
-        setQuestionText(prev => (prev ? prev + "\n" + text : text));
+        setQuestionText(text); // Replacement is better for "Ask Question" flow to avoid mixing old question text
         toast({
           title: "Başarılı ✨",
           description: "Yapay zeka soruyu başarıyla okudu.",
@@ -101,7 +101,7 @@ export default function AskQuestion() {
         const fallbackText = result.data.text.trim();
 
         if (fallbackText) {
-          setQuestionText(prev => (prev ? prev + "\n" + fallbackText : fallbackText));
+          setQuestionText(fallbackText);
         } else {
           throw new Error("Metin bulunamadı.");
         }
@@ -202,9 +202,15 @@ export default function AskQuestion() {
   const removeImage = () => {
     setImage(null);
     setImageFile(null);
+    setQuestionText(""); // Clear OCR text too when image is removed
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const clearText = () => {
+    setQuestionText("");
+    localStorage.removeItem("ask_question_draft_text");
   };
 
   const handleSubmit = async () => {
@@ -411,11 +417,21 @@ export default function AskQuestion() {
         <div className="space-y-2 relative">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Soru Metni</label>
-            {isProcessing && (
-              <span className="text-xs text-primary flex items-center gap-1 animate-pulse">
-                <Wand2 className="w-3 h-3" /> Fotoğraftan metin çıkarılıyor...
-              </span>
-            )}
+            <div className="flex gap-2">
+              {questionText && (
+                <button
+                  onClick={clearText}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  Temizle
+                </button>
+              )}
+              {isProcessing && (
+                <span className="text-xs text-primary flex items-center gap-1 animate-pulse">
+                  <Wand2 className="w-3 h-3" /> Fotoğraftan metin çıkarılıyor...
+                </span>
+              )}
+            </div>
           </div>
           <Textarea
             placeholder="Sorunu buraya yazabilir veya fotoğraf çekebilirsin..."
