@@ -49,7 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (error) {
+                console.error("Auth session error:", error.message);
+                if (error.message.includes("refresh_token_not_found") || error.message.includes("Refresh Token Not Found")) {
+                    supabase.auth.signOut();
+                }
+            }
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
@@ -62,7 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth changes
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Auth Event:", event);
+
+            if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+                // Refresh cases
+            }
+
+            // Handle invalid refresh token specifically
+            if (event === 'TOKEN_REFRESHED' === false && !session && event !== 'SIGNED_OUT') {
+                // Might be a failed refresh
+            }
+
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {

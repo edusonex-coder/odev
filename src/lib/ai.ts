@@ -302,11 +302,22 @@ async function makeAIRequest(
             if (cacheableFeatures.includes(featureName)) {
                 const userPrompt = messages.find(m => m.role === "user")?.content;
                 if (typeof userPrompt === 'string' && content) {
+                    // Extract tenantId if available from the search params or context
+                    const sourceProduct = "odevgpt";
+
                     supabase.from("ai_knowledge_graph").upsert({
                         content_text: userPrompt,
                         ai_response: content,
-                        category: featureName
-                    }).then(({ error }) => error && console.warn("Cache save error:", error));
+                        category: featureName,
+                        source_product: sourceProduct
+                    }, { onConflict: 'content_text' }).then(({ error }) => {
+                        if (error) {
+                            console.warn("Cache save error:", error);
+                            if (error.code === '23502') {
+                                console.error("CRITICAL: Missing NOT NULL column in ai_knowledge_graph. Please check database schema.");
+                            }
+                        }
+                    });
                 }
             }
 
