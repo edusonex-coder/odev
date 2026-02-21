@@ -21,13 +21,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, FileQuestion, Calendar as CalendarIcon, Filter,
-    ArrowUpDown, Download, ExternalLink, Coins, Eye, Brain
+    ArrowUpDown, Download, ExternalLink, Brain
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, startOfWeek } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { saveAs } from "file-saver";
 
 interface QuestionWithStats {
     id: string;
@@ -52,13 +53,14 @@ export default function AdvancedQuestionPool() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSubject, setSelectedSubject] = useState<string>("all");
     const [selectedTenant, setSelectedTenant] = useState<string>("all");
+    const [dateRange, setDateRange] = useState<string>("30");
     const [subjects, setSubjects] = useState<string[]>([]);
     const [tenants, setTenants] = useState<{ id: string, name: string }[]>([]);
 
     useEffect(() => {
         fetchData();
         fetchFilters();
-    }, [selectedTenant, selectedSubject]);
+    }, [selectedTenant, selectedSubject, dateRange]);
 
     const fetchFilters = async () => {
         try {
@@ -93,10 +95,23 @@ export default function AdvancedQuestionPool() {
                     query = query.eq('tenant_id', selectedTenant);
                 }
             } else {
-                // School Admin will only see their tenant via RLS, but we can be explicit
                 if (profile?.tenant_id) {
                     query = query.eq('tenant_id', profile.tenant_id);
                 }
+            }
+
+            // Date Filtering
+            const now = new Date();
+            if (dateRange === "today") {
+                query = query.gte('created_at', startOfDay(now).toISOString());
+            } else if (dateRange === "yesterday") {
+                const yesterday = subDays(now, 1);
+                query = query.gte('created_at', startOfDay(yesterday).toISOString())
+                    .lte('created_at', endOfDay(yesterday).toISOString());
+            } else if (dateRange === "week") {
+                query = query.gte('created_at', startOfWeek(now, { weekStartsOn: 1 }).toISOString());
+            } else if (dateRange === "30") {
+                query = query.gte('created_at', subDays(now, 30).toISOString());
             }
 
             const { data, error } = await query;
@@ -111,6 +126,40 @@ export default function AdvancedQuestionPool() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExport = () => {
+        try {
+            if (questions.length === 0) {
+                toast({ title: "Uyarı", description: "Dışa aktarılacak veri bulunamadı." });
+                return;
+            }
+
+            const headers = ["ID", "Tarih", "Öğrenci", "Ders", "Soru Özeti", "Durum", "AI Maliyet ($)", "Okul"];
+            const csvRows = [headers.join(",")];
+
+            questions.forEach(q => {
+                const row = [
+                    q.id,
+                    format(new Date(q.created_at), 'yyyy-MM-dd HH:mm'),
+                    `"${(q.student_name || '').replace(/"/g, '""')}"`,
+                    `"${(q.subject || '').replace(/"/g, '""')}"`,
+                    `"${(q.question_text || 'Görsel').substring(0, 50).replace(/"/g, '""')}"`,
+                    q.status,
+                    q.total_ai_cost.toFixed(4),
+                    `"${(q.tenant_name || 'Bireysel').replace(/"/g, '""')}"`
+                ];
+                csvRows.push(row.join(","));
+            });
+
+            const csvString = csvRows.join("\n");
+            const blob = new Blob(["\ufeff" + csvString], { type: "text/csv;charset=utf-8;" });
+            saveAs(blob, `odevgpt_soru_havuzu_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+
+            toast({ title: "Başarılı", description: "Veriler Excel (CSV) olarak indirildi." });
+        } catch (err) {
+            toast({ title: "Hata", description: "Dosya oluşturulurken bir hata oluştu.", variant: "destructive" });
         }
     };
 
@@ -141,7 +190,12 @@ export default function AdvancedQuestionPool() {
                         <CardDescription>Tüm soruları, maliyetleri ve çözüm statülerini izleyin.</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 bg-white"
+                            onClick={handleExport}
+                        >
                             <Download className="w-4 h-4" /> Excel'e Aktar
                         </Button>
                     </div>
@@ -186,10 +240,21 @@ export default function AdvancedQuestionPool() {
                         </Select>
                     )}
 
-                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border text-xs text-slate-500">
-                        <CalendarIcon className="w-4 h-4" />
-                        <span>Filtre: Son 30 Gün</span>
-                    </div>
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                        <SelectTrigger className="bg-white">
+                            <div className="flex items-center gap-2">
+                                <CalendarIcon className="w-3 h-3 text-slate-400" />
+                                <SelectValue placeholder="Tarih Aralığı" />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="today">Bugün</SelectItem>
+                            <SelectItem value="yesterday">Dün</SelectItem>
+                            <SelectItem value="week">Bu Hafta</SelectItem>
+                            <SelectItem value="30">Son 30 Gün</SelectItem>
+                            <SelectItem value="all">Tüm Zamanlar</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </CardHeader>
             <CardContent className="p-0">
