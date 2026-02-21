@@ -8,6 +8,7 @@ test.describe('Console Error Scanner', () => {
         '/dashboard/ask',
         '/dashboard/settings',
         '/teacher',
+        '/blog',
     ];
 
     for (const pagePath of pagesToScan) {
