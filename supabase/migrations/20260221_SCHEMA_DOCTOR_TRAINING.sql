@@ -44,6 +44,10 @@ END $$;
 -- RLS Politikaları
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
+-- Eski isimli politikayı temizle (Conflict önleyici)
+DROP POLICY IF EXISTS "Users can view relevant announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can manage announcements" ON public.announcements;
+
 DROP POLICY IF EXISTS "Anyone can view relevant announcements" ON public.announcements;
 CREATE POLICY "Anyone can view relevant announcements" ON public.announcements
 FOR SELECT TO authenticated

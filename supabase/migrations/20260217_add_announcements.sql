@@ -23,6 +23,7 @@ ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'inf
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
 -- Herkes aktif duyuruları görebilir (Kendi tenant'ı veya Global olanlar)
+DROP POLICY IF EXISTS "Users can view relevant announcements" ON public.announcements;
 CREATE POLICY "Users can view relevant announcements" ON public.announcements
     FOR SELECT USING (
         is_active = TRUE AND (
@@ -33,6 +34,7 @@ CREATE POLICY "Users can view relevant announcements" ON public.announcements
     );
 
 -- Adminler duyuru oluşturabilir/düzenleyebilir
+DROP POLICY IF EXISTS "Admins can manage announcements" ON public.announcements;
 CREATE POLICY "Admins can manage announcements" ON public.announcements
     FOR ALL USING (
         (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
