@@ -420,18 +420,23 @@ export async function askAI(
 /**
  * Öğretmen duyurusunu pedagojik ve etkileyici hale getirir
  */
-export async function enhanceAnnouncement(content: string) {
+export async function enhanceAnnouncement(content: string, tone: 'motivating' | 'formal' | 'warning' = 'motivating') {
+    const tonePrompts = {
+        motivating: "motive edici, nazik, pedagojik açıdan doğru ve heyecan verici",
+        formal: "resmi, ciddi, profesyonel ve kurumsal",
+        warning: "uyarıcı, ciddi, kuralları hatırlatan ama yine de saygılı"
+    };
+
     const systemPrompt = `
     Sen OdevGPT'nin akıllı eğitim asistanısın. 
-    Görevin: Öğretmenin yazdığı kısa ve teknik duyuruları, öğrenciler için motive edici, nazik, 
-    pedagojik açıdan doğru ve heyecan verici bir dille yeniden yazmak. 
+    Görevin: Öğretmenin yazdığı kısa ve teknik duyuruları, öğrenciler için ${tonePrompts[tone]} bir dille yeniden yazmak. 
     - Duyurunun özünü koru.
-    - Emoji kullan.
+    - Duyurunun içeriğine uygun emojiler kullan.
     - Öğrencilere hitap şeklin samimi ve destekleyici olsun.
     - Metni çok uzatmadan, okunabilirliği yüksek tut.
   `;
 
-    return askAI(`Lütfen şu duyuruyu geliştir: "${content}"`, systemPrompt, "announcement_enhancer");
+    return askAI(`Lütfen şu duyuruyu ${tone} tonunda geliştir: "${content}"`, systemPrompt, "announcement_enhancer");
 }
 
 /**

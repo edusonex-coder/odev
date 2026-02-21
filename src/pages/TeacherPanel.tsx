@@ -149,6 +149,7 @@ export default function TeacherPanel() {
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementDraft, setAnnouncementDraft] = useState("");
+  const [announcementTone, setAnnouncementTone] = useState<'motivating' | 'formal' | 'warning'>("motivating");
   const [isEnhancingAnnouncement, setIsEnhancingAnnouncement] = useState(false);
   const [targetClassId, setTargetClassId] = useState<string>("all");
 
@@ -318,13 +319,8 @@ export default function TeacherPanel() {
     if (!announcementDraft) return;
     setIsEnhancingAnnouncement(true);
     try {
-      const { askAI } = await import("@/lib/ai");
-      const prompt = `
-        Aşağıdaki taslak duyuruyu daha profesyonel, nazik ve net bir eğitim duyurusu haline getir.
-        Öğrenci ve veliler tarafından okunacak. Duyuru çok uzun olmasın (max 100 kelime).
-        Taslak: ${announcementDraft}
-      `;
-      const response = await askAI(prompt, "Sen bir okul müdürü ve iletişim uzmanısın. Net ve motive edici duyurular yazarsın.");
+      const { enhanceAnnouncement: aiEnhance } = await import("@/lib/ai");
+      const response = await aiEnhance(announcementDraft, announcementTone);
       setAnnouncementContent(response);
       toast({ title: "AI Duyuruyu Hazırladı! ✨", description: "Duyuru metni güncellendi." });
     } catch (err) {
@@ -480,6 +476,19 @@ export default function TeacherPanel() {
                         onChange={(e) => setAnnouncementDraft(e.target.value)}
                         className="min-h-[100px]"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold">Duyuru Tonu</Label>
+                      <Select value={announcementTone} onValueChange={(v: any) => setAnnouncementTone(v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ton seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="motivating">Motive Edici 🚀</SelectItem>
+                          <SelectItem value="formal">Resmi/Kurumsal 🏛️</SelectItem>
+                          <SelectItem value="warning">Ciddi/Uyarı !️</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button
                         onClick={enhanceAnnouncement}
                         disabled={isEnhancingAnnouncement || !announcementDraft}

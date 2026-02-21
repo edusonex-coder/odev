@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { generateWeeklyParentReport, generateReportHighlights } from '@/lib/ai';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,6 +52,7 @@ export function WeeklyReportCard({ studentId, studentName }: WeeklyReportCardPro
         weekStart: Date;
         weekEnd: Date;
     } | null>(null);
+    const { user } = useAuth();
     const { toast } = useToast();
     const [fetchedOnMount, setFetchedOnMount] = useState(false);
 
@@ -137,6 +139,7 @@ export function WeeklyReportCard({ studentId, studentName }: WeeklyReportCardPro
             await supabase
                 .from('parent_reports')
                 .insert({
+                    parent_id: user?.id,
                     student_id: studentId,
                     week_start: format(weekStart, 'yyyy-MM-dd'),
                     week_end: format(weekEnd, 'yyyy-MM-dd'),
