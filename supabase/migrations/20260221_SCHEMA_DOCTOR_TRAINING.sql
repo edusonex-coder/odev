@@ -51,6 +51,13 @@ USING (
     is_active = TRUE AND (
         is_global = TRUE OR 
         class_id IN (SELECT class_id FROM public.class_students WHERE student_id = auth.uid()) OR
+        -- Parent Access: Veli çocuğunun sınıfındaki duyuruları görebilmeli
+        class_id IN (
+            SELECT cs.class_id 
+            FROM public.class_students cs
+            JOIN public.student_parent_relations spr ON spr.student_id = cs.student_id
+            WHERE spr.parent_id = auth.uid()
+        ) OR
         teacher_id = auth.uid() OR
         (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
     )
