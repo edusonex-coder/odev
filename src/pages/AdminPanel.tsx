@@ -142,6 +142,7 @@ export default function AdminPanel() {
         try {
             setLoading(true);
             const isAll = selectedTenantId === "all";
+            const isIndividual = selectedTenantId === "individual";
 
             // 1. Genel İstatistikler
             let userQuery = supabase.from('profiles').select('*', { count: 'exact', head: true });
@@ -149,7 +150,12 @@ export default function AdminPanel() {
             let solutionQuery = supabase.from('solutions').select('*', { count: 'exact', head: true });
             let pendingQuery = supabase.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
 
-            if (!isAll) {
+            if (isIndividual) {
+                userQuery = userQuery.is('tenant_id', null);
+                questionQuery = questionQuery.is('tenant_id', null);
+                solutionQuery = solutionQuery.is('tenant_id', null);
+                pendingQuery = pendingQuery.is('tenant_id', null);
+            } else if (!isAll) {
                 userQuery = userQuery.eq('tenant_id', selectedTenantId);
                 questionQuery = questionQuery.eq('tenant_id', selectedTenantId);
                 solutionQuery = solutionQuery.eq('tenant_id', selectedTenantId);
@@ -164,7 +170,8 @@ export default function AdminPanel() {
             // Rol dağılımı
             const getRoleCount = async (role: string) => {
                 let q = supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', role);
-                if (!isAll) q = q.eq('tenant_id', selectedTenantId);
+                if (isIndividual) q = q.is('tenant_id', null);
+                else if (!isAll) q = q.eq('tenant_id', selectedTenantId);
                 const { count } = await q;
                 return count || 0;
             };
@@ -192,7 +199,9 @@ export default function AdminPanel() {
                 .order('created_at', { ascending: false })
                 .limit(50);
 
-            if (!isAll) {
+            if (isIndividual) {
+                profilesQuery = profilesQuery.is('tenant_id', null);
+            } else if (!isAll) {
                 profilesQuery = profilesQuery.eq('tenant_id', selectedTenantId);
             }
 
@@ -311,7 +320,9 @@ export default function AdminPanel() {
                                     <SelectValue placeholder="Okul Seçin" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Tüm Okullar</SelectItem>
+                                    <SelectItem value="all">Tüm Sistem (Holding)</SelectItem>
+                                    <SelectItem value="individual">Bağımsız Kullanıcılar</SelectItem>
+                                    <hr className="my-1 opacity-20" />
                                     {tenants.map(t => (
                                         <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                     ))}

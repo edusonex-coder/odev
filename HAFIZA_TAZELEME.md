@@ -15,5 +15,14 @@
 4. **Storage Düzeltme:** `question_images` bucket'ı için `anon` yükleme ve erişim izni verildi.
 5. **Global Grant:** Genel `GRANT ALL` komutları ile yetkilendirme sorunları kökten çözüldü.
 
+### 🔍 Tespit Edilen Son Sorunlar & Çözümler (2026-02-21 23:55)
+1. **RLS Infinite Recursion (Profiles):** `profiles` tablosu RLS politikası için yine kendisini sorguluyordu. `SECURITY DEFINER` fonksiyonları ile döngü kırıldı.
+2. **Dashboard View Error:** `ceo_growth_metrics` view olduğu için insert yapılamıyordu. View silindi ve gerçek tabloya dönüştürüldü.
+3. **Executive Dashboard UI Crash:** Eksik view'lar (`ceo_financial_dashboard`) ve yetkisizlik (GRANT) sorunları giderildi, UI render hataları için null-check eklendi.
+
+### 📜 KRİTİK PROJE NOTLARI (HAFIZA)
+- **CRM & YÖNETİM (LOCAL ONLY):** Workspace'te görünen `crm` ve `edusonex-tum` klasörleri şu an sadece **LOCAL** ortamda çalışmaktadır. Bunlar henüz GitHub'a push edilmeyecektir. Commit listelerine dahil edilmemelidir.
+- **FÜZEM INTEGRATION:** Holding-Okul izolasyonu tamamlandı. RLS politikaları fonksiyon tabanlı çalışmaktadır.
+
 ### 🚀 Sonuç
-Sistemdeki tüm tıkanıklıklar giderildi. Kullanıcı artık soru sorabilir, AI ile sohbet edebilir ve usage logları sorunsuz kaydedilir.
+Sistemdeki tüm tıkanıklıklar giderildi. Dashboard'lar aktif, RLS izolasyonu sağlandı ve proje stabil durumda.
