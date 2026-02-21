@@ -44,7 +44,8 @@ FROM
     ai_costs c
 LEFT JOIN revenue r ON c.tenant_id = r.tenant_id;
 
--- 2. CEO Growth Metrics (Ensure exists)
+-- 2. CEO Growth Metrics (Ensure exists as a table, drop view if it exists from older sessions)
+DROP VIEW IF EXISTS public.ceo_growth_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.ceo_growth_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform TEXT,
