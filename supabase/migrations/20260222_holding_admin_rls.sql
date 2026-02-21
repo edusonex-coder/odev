@@ -166,6 +166,31 @@ GROUP BY
 
 GRANT SELECT ON public.tenant_ai_spend_summary TO authenticated;
 
+-- 3.2 EXECUTIVE DASHBOARD EXPOSURE (MISSING GRANTS)
+GRANT SELECT ON public.ceo_financial_dashboard TO authenticated;
+
+-- Growth Metrics Table (If missing for chart)
+CREATE TABLE IF NOT EXISTS public.ceo_growth_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    platform TEXT,
+    total_conversions INTEGER,
+    cac DECIMAL(10, 2),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed some sample growth data
+INSERT INTO public.ceo_growth_metrics (platform, total_conversions, cac) VALUES 
+('Google Ads', 125, 4.20),
+('Meta', 88, 5.50),
+('Referral', 45, 0.00),
+('Direct', 210, 0.00)
+ON CONFLICT DO NOTHING;
+
+GRANT SELECT ON public.ceo_growth_metrics TO authenticated;
+GRANT SELECT ON public.payments TO authenticated;
+GRANT SELECT ON public.subscriptions TO authenticated;
+GRANT SELECT ON public.subscription_plans TO authenticated;
+
 -- 4. SONUÇ MESAJI
 DO $$
 BEGIN
