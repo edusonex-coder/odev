@@ -2,13 +2,23 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Console Error Scanner', () => {
     const pagesToScan = [
+        '/',
+        '/login',
+        '/signup',
+        '/blog',
         '/dashboard',
         '/dashboard/history',
         '/dashboard/profile',
         '/dashboard/ask',
         '/dashboard/settings',
+        '/dashboard/leaderboard',
+        '/dashboard/referral',
+        '/dashboard/premium',
         '/teacher',
-        '/blog',
+        '/parent',
+        '/dashboard/admin',
+        '/executive',
+        '/sitemap'
     ];
 
     for (const pagePath of pagesToScan) {

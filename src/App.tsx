@@ -29,6 +29,7 @@ import BlogPost from "./pages/BlogPost";
 import ParentPanel from "./pages/ParentPanel";
 import Referral from "./pages/Referral";
 import ExecutiveDashboard from "./components/ExecutiveDashboard";
+import Sitemap from "./pages/Sitemap";
 
 
 import { TenantProvider } from "./contexts/TenantContext";
@@ -113,14 +114,15 @@ const App = () => (
                 <Route index element={<ParentPanel />} />
               </Route>
 
-              <Route
-                path="/executive"
+              <Route path="/executive"
                 element={
                   <ProtectedRoute requireRole="admin">
                     <ExecutiveDashboard />
                   </ProtectedRoute>
                 }
               />
+
+              <Route path="/sitemap" element={<Sitemap />} />
 
               <Route path="*" element={<NotFound />} />
 

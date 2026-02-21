@@ -28,11 +28,11 @@ Bu dosya, OdevGPT projesinin mevcut teknik durumunu ve bir sonraki AI asistanın
     - **Akıllı Görsel Sıkıştırma:** Mobil cihazlardan gelen yüksek boyutlu görseller client-side sıkıştırılıp (max 0.8MB) "Large Payload" hataları çözüldü.
     - **Veri Transferi Fix:** Benzer soru -> Soru sor ekranı arasındaki veri kaybı giderildi.
 
-**9. Şema Doktoru & Veri Uyumluluğu (YENİ - 21 Şubat 2026):**
-- **Schema Doctor Training:** `announcements` ve `blogs` tablolarındaki şema hataları kökten çözüldü.
-- **Akıllı Tanılama:** `supabase_doktor.py` artık SQL yorumlarını atlayıp gerçek mantık hatalarını (teacher_id mismatch vb.) raporlayabiliyor.
-- **Veli-Okul İletişimi:** Velilerin çocuklarının sınıf duyurularının görebilmesi için RLS katmanı güçlendirildi.
-- **Idempotent SQL:** Tüm kritik migrasyonlar defalarca çalıştırılabilir (safe-to-run) hale getirildi.
+**9. Şema Doktoru & Veri Uyumluluğu (YENİ - 22 Şubat 2026):**
+- **Unified Ecosystem Doctor:** `ui_doktor.js` artık 17 farklı kritik sayfayı otomatik tarayabiliyor.
+- **Sitemap Entegrasyonu:** `/sitemap` sayfası ile 0. Guest'ten 5. Holding Admin'e kadar tüm rollere özel sayfa haritası oluşturuldu.
+- **CEO Vision Fix:** RLS ihlalleri (assignments, blogs, announcements) ve `class_id` kısıtlama hataları `20260222_CEO_VISION_FIX.sql` ile giderildi.
+- **Not-null Relaxing:** Global duyurular için `class_id` zorunluluğu kaldırıldı.
 
 ## 🛠️ VERİTABANI ŞEMASI (GÜNCEL)
 - `profiles`: Roller, XP, level, avatar_url, parent_access_code.
