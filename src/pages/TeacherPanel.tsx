@@ -209,7 +209,11 @@ export default function TeacherPanel() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (clsError) throw clsError;
+      if (clsError) {
+        console.error("Sınıf yükleme hatası:", clsError);
+        toast({ title: "Hata", description: "Sınıflar yüklenemedi.", variant: "destructive" });
+        return;
+      }
       setClasses(clsData || []);
 
       if (!clsData || clsData.length === 0) {
@@ -259,7 +263,8 @@ export default function TeacherPanel() {
         name: newClassName,
         schedule: newClassSchedule,
         color: newClassColor,
-        invite_code: generatedCode
+        invite_code: generatedCode,
+        tenant_id: profile?.tenant_id
       });
 
       if (error) throw error;
@@ -572,7 +577,7 @@ export default function TeacherPanel() {
                   <HelpCircle className="h-4 w-4 text-blue-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{questions.length + 15}</div>
+                  <div className="text-2xl font-bold">{questions.length}</div>
                   <p className="text-xs text-muted-foreground mt-1">Bu dönem sorulan</p>
                 </CardContent>
               </Card>
@@ -592,7 +597,7 @@ export default function TeacherPanel() {
                   <CheckCircle className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">15</div>
+                  <div className="text-2xl font-bold">0</div>
                   <p className="text-xs text-muted-foreground mt-1 text-green-600">Başarıyla yanıtlananlar</p>
                 </CardContent>
               </Card>
