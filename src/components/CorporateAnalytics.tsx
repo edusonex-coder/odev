@@ -73,13 +73,17 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
 
             // 4. Real Summary Stats
             let summaryQuery = supabase.from('corporate_analytics_summary').select('*');
-            if (targetTenant && targetTenant !== 'all') {
+
+            if (targetTenant === 'individual') {
+                summaryQuery = summaryQuery.is('tenant_id', null);
+            } else if (targetTenant && targetTenant !== 'all') {
                 summaryQuery = summaryQuery.eq('tenant_id', targetTenant);
             }
+
             const { data: sumData } = await summaryQuery;
 
             if (sumData && sumData.length > 0) {
-                // If 'all' is selected, sum up all tenants
+                // If 'all' is selected, sum up all rows
                 const totals = sumData.reduce((acc, curr) => ({
                     active_students: acc.active_students + (curr.active_students || 0),
                     total_questions: acc.total_questions + (curr.total_questions || 0),

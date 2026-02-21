@@ -9,34 +9,45 @@ import {
     ChevronRight, AlertCircle, CheckCircle2, LayoutDashboard, GraduationCap, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ExecutiveDashboard = () => {
+    const { profile } = useAuth();
     const [stats, setStats] = useState<any>(null);
     const [growth, setGrowth] = useState<any>([]);
     const [tenants, setTenants] = useState<any>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchStats();
-    }, []);
+        if (profile) {
+            fetchStats();
+        }
+    }, [profile]);
 
     const fetchStats = async () => {
         try {
+            setLoading(true);
+            const isSuper = profile?.is_super_admin;
+            const myTenant = profile?.tenant_id;
+
             // 1. AI Financial Dashboard
-            const { data: finData } = await supabase
-                .from('ceo_financial_dashboard')
-                .select('*');
+            let finQuery = supabase.from('ceo_financial_dashboard').select('*');
+            if (!isSuper && myTenant) {
+                finQuery = finQuery.eq('tenant_id', myTenant);
+            }
+            const { data: finData } = await finQuery;
 
             // 2. Growth metrics (ADS/CAMPAIGNS)
-            const { data: growthData } = await supabase
-                .from('ceo_growth_metrics')
-                .select('*');
+            let growthQuery = supabase.from('ceo_growth_metrics').select('*');
+            // Growth is typically global in this context, but we keep it queryable
+            const { data: growthData } = await growthQuery;
 
             // 3. Tenants (School Management)
-            const { data: tenantData } = await supabase
-                .from('tenants')
-                .select('*')
-                .order('created_at', { ascending: false });
+            let tenantQuery = supabase.from('tenants').select('*').order('created_at', { ascending: false });
+            if (!isSuper && myTenant) {
+                tenantQuery = tenantQuery.eq('id', myTenant);
+            }
+            const { data: tenantData } = await tenantQuery;
 
             setStats(finData);
             setGrowth(growthData || []);
@@ -64,7 +75,7 @@ const ExecutiveDashboard = () => {
                         </h1>
                         <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
                             <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
-                            Yapay Zeka Organizasyonu - Başkanlık Paneli
+                            {profile?.is_super_admin ? "Yapay Zeka Organizasyonu - Başkanlık Paneli" : `${profile?.tenants?.name || 'Kurumsal'} - Yönetici Analiz Paneli`}
                         </p>
                     </div>
                 </div>
@@ -166,36 +177,40 @@ const ExecutiveDashboard = () => {
                     </div>
                 </div>
 
-                {/* Growth Analysis Chart */}
-                <div className="lg:col-span-3 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 mt-8">
-                    <h3 className="text-xl font-bold mb-8 flex items-center gap-2 text-indigo-300">
-                        <Users className="w-5 h-5" /> Pazarlama & Büyüme (CMO Insights)
-                    </h3>
-                    <div className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={growth || []}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
-                                <XAxis dataKey="platform" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                />
-                                <Bar dataKey="total_conversions" name="Dönüşüm" fill="#818cf8" radius={[6, 6, 0, 0]} />
-                                <Bar dataKey="cac" name="CAC ($)" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                {/* Growth Analysis Chart - Only for Super Admins */}
+                {profile?.is_super_admin && (
+                    <div className="lg:col-span-3 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 mt-8">
+                        <h3 className="text-xl font-bold mb-8 flex items-center gap-2 text-indigo-300">
+                            <Users className="w-5 h-5" /> Pazarlama & Büyüme (CMO Insights)
+                        </h3>
+                        <div className="h-[250px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={growth || []}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
+                                    <XAxis dataKey="platform" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                    />
+                                    <Bar dataKey="total_conversions" name="Dönüşüm" fill="#818cf8" radius={[6, 6, 0, 0]} />
+                                    <Bar dataKey="cac" name="CAC ($)" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* School & Tenant Management */}
                 <div className="lg:col-span-3 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 mt-8">
                     <div className="flex justify-between items-center mb-8">
                         <h3 className="text-xl font-bold flex items-center gap-2 text-emerald-400">
-                            <GraduationCap className="w-5 h-5" /> B2B Okul & Kurum Yönetimi
+                            <GraduationCap className="w-5 h-5" /> {profile?.is_super_admin ? "B2B Okul & Kurum Yönetimi" : "Kurumsal Bilgiler"}
                         </h3>
-                        <button className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                            Yeni Kurum Ekle <ChevronRight className="w-4 h-4" />
-                        </button>
+                        {profile?.is_super_admin && (
+                            <button className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                                Yeni Kurum Ekle <ChevronRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="overflow-x-auto">

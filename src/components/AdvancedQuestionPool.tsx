@@ -95,7 +95,9 @@ export default function AdvancedQuestionPool({ tenantId }: { tenantId?: string }
             }
 
             if (profile?.is_super_admin) {
-                if (selectedTenant !== "all") {
+                if (selectedTenant === 'individual') {
+                    query = query.is('tenant_id', null);
+                } else if (selectedTenant !== "all") {
                     query = query.eq('tenant_id', selectedTenant);
                 }
             } else {

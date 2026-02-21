@@ -10,6 +10,15 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useToast } from "@/hooks/use-toast";
 import SEO from "@/components/SEO";
 
+const AUTH_ERRORS: Record<string, string> = {
+    "Invalid login credentials": "E-posta adresi veya şifre hatalı.",
+    "Email not confirmed": "E-posta adresi henüz doğrulanmamış.",
+    "User not found": "Kullanıcı bulunamadı.",
+    "Invalid email or password": "E-posta adresi veya şifre hatalı.",
+};
+
+const translateError = (msg: string) => AUTH_ERRORS[msg] || msg || "Giriş yapılırken bir hata oluştu.";
+
 export default function Login() {
     const { tenant } = useTenant();
     const [email, setEmail] = useState("");
@@ -34,10 +43,11 @@ export default function Login() {
             });
             navigate("/dashboard");
         } catch (err: any) {
-            setError(err.message || "Giriş yapılırken bir hata oluştu.");
+            const trError = translateError(err.message);
+            setError(trError);
             toast({
                 title: "Hata",
-                description: err.message || "Giriş yapılırken bir hata oluştu.",
+                description: trError,
                 variant: "destructive",
             });
         } finally {

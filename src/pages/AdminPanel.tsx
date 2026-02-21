@@ -206,6 +206,11 @@ export default function AdminPanel() {
                 profilesQuery = profilesQuery.eq('tenant_id', selectedTenantId);
             }
 
+            // Hide Super Admins from non-super admins
+            if (!profile?.is_super_admin) {
+                profilesQuery = profilesQuery.eq('is_super_admin', false);
+            }
+
             const { data: userData, error: userError } = await profilesQuery;
 
             if (userError) throw userError;

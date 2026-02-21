@@ -1,18 +1,22 @@
 -- =====================================================
--- 🛡️ ODEVGPT DATA ISOLATION & ANALYTICS FIX
+-- 🛡️ ODEVGPT DATA ISOLATION & ANALYTICS FIX (V3)
 -- =====================================================
 -- Amaç: Kurumların birbirinin verisini görmesini engellemek ve 
--- "Detaylı Analiz" ile "Maliyet Defteri"ni hiyerarşiye bağlamak.
+-- PostgreSQL'deki view güncelleme hatasını (42P16) aşmak.
 
 BEGIN;
 
--- 1. CEO Financial Dashboard View Güncellemesi (tenant_id ekle)
+-- 1. ESKİ YAPILARI TEMİZLE (Colum name uyuşmazlığını çözmek için en garantisi DROP)
+DROP VIEW IF EXISTS public.corporate_analytics_summary CASCADE;
 DROP VIEW IF EXISTS public.ceo_financial_dashboard CASCADE;
+DROP VIEW IF EXISTS public.tenant_cost_ledger CASCADE;
+
+-- 2. CEO Financial Dashboard (Performans için Aggregate edilmiş hali)
 CREATE OR REPLACE VIEW public.ceo_financial_dashboard AS
 SELECT 
     l.metadata->>'feature_name' as feature_name,
     l.model,
-    l.tenant_id, -- FİLTRELEME İÇİN KRİTİK
+    l.tenant_id,
     SUM(l.total_tokens) as total_tokens,
     SUM(l.cost_usd) as total_cost_usd,
     AVG(l.latency_ms) as avg_latency,
@@ -24,7 +28,7 @@ GROUP BY
 
 GRANT SELECT ON public.ceo_financial_dashboard TO authenticated;
 
--- 2. Kurum Özeti View'ı Güncellemesi (RLS ile uyumlu)
+-- 3. Kurum Özeti View'ı (Hiyerarşi ve İzolasyon odaklı)
 CREATE OR REPLACE VIEW public.corporate_analytics_summary AS
 SELECT 
     t.id as tenant_id,
@@ -36,7 +40,6 @@ SELECT
 FROM 
     public.tenants t
 UNION ALL
--- Bireysel Kullanıcılar İçin
 SELECT 
     NULL as tenant_id,
     'Bireysel' as tenant_name,
@@ -47,9 +50,27 @@ SELECT
 
 GRANT SELECT ON public.corporate_analytics_summary TO authenticated;
 
+-- 4. Maliyet Defteri Master View
+CREATE OR REPLACE VIEW public.tenant_cost_ledger AS
+SELECT 
+    COALESCE(t.name, 'Bireysel') as tenant_name,
+    l.tenant_id,
+    l.model,
+    SUM(l.total_tokens) as total_tokens,
+    SUM(l.cost_usd) as total_cost_usd,
+    COUNT(*) as total_ai_requests
+FROM 
+    public.ai_usage_logs l
+LEFT JOIN 
+    public.tenants t ON l.tenant_id = t.id
+GROUP BY 
+    t.name, l.tenant_id, l.model;
+
+GRANT SELECT ON public.tenant_cost_ledger TO authenticated;
+
 COMMIT;
 
 DO $$ 
 BEGIN 
-  RAISE NOTICE '✅ DATA ISOLATION: Viewlar hiyerarşiye uygun hale getirildi.'; 
+  RAISE NOTICE '✅ DATA ISOLATION V3: Analiz motoru başarıyla güncellendi.'; 
 END $$;

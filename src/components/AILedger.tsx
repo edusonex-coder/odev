@@ -59,9 +59,9 @@ export default function AILedger({ tenantId }: { tenantId?: string }) {
             setLoading(true);
             let query = supabase.from('ceo_financial_dashboard').select('*');
 
-            if (tenantId && tenantId !== 'all') {
-                // If the view doesn't have tenant_id directly, we filter in the ai_usage_logs
-                // But for now, let's assume the view supports basic filtering or we will update the view
+            if (tenantId === 'individual') {
+                query = query.is('tenant_id', null);
+            } else if (tenantId && tenantId !== 'all') {
                 query = query.eq('tenant_id', tenantId);
             }
 
@@ -165,7 +165,7 @@ export default function AILedger({ tenantId }: { tenantId?: string }) {
                             {data.sort((a, b) => b.interaction_count - a.interaction_count).slice(0, 5).map((item, i) => (
                                 <div key={i} className="flex items-center justify-between">
                                     <div className="space-y-1">
-                                        <p className="text-sm font-medium leading-none capitalize">{item.feature_name.replace(/_/g, ' ')}</p>
+                                        <p className="text-sm font-medium leading-none capitalize">{(item.feature_name || 'Bilinmeyen').replace(/_/g, ' ')}</p>
                                         <p className="text-xs text-muted-foreground">{item.model}</p>
                                     </div>
                                     <div className="text-right">
@@ -205,7 +205,7 @@ export default function AILedger({ tenantId }: { tenantId?: string }) {
                     <TableBody>
                         {data.map((row, i) => (
                             <TableRow key={i}>
-                                <TableCell className="font-medium capitalize">{row.feature_name.replace(/_/g, ' ')}</TableCell>
+                                <TableCell className="font-medium capitalize">{(row.feature_name || 'Bilinmeyen').replace(/_/g, ' ')}</TableCell>
                                 <TableCell>
                                     <Badge variant="outline" className="font-normal text-[10px]">
                                         {row.model}

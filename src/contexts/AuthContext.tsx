@@ -26,6 +26,7 @@ interface Profile {
     is_super_admin: boolean;
     referral_code: string | null;
     referred_by_code: string | null;
+    tenants?: { name: string } | null;
 }
 
 interface AuthContextType {
@@ -99,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('*, tenants(name)')
                 .eq('id', userId)
                 .single();
 
