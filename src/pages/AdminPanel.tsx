@@ -46,7 +46,9 @@ import AnnouncementManager from "@/components/AnnouncementManager";
 import HoldingAnalytics from "@/components/HoldingAnalytics";
 import TenantManager from "@/components/TenantManager";
 import AILedger from "@/components/AILedger";
-import { BookOpenText, Megaphone, LayoutDashboard, Building2, Coins } from "lucide-react";
+import AdvancedQuestionPool from "@/components/AdvancedQuestionPool";
+import CorporateAnalytics from "@/components/CorporateAnalytics";
+import { BookOpenText, Megaphone, LayoutDashboard, Building2, Coins, SearchCode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -339,6 +341,12 @@ export default function AdminPanel() {
                     </TabsTrigger>
                     <TabsTrigger value="announcements" className="rounded-lg gap-2">
                         <Megaphone className="w-4 h-4" /> Duyurular
+                    </TabsTrigger>
+                    <TabsTrigger value="questions" className="rounded-lg gap-2">
+                        <SearchCode className="w-4 h-4 text-emerald-600" /> Soru Havuzu
+                    </TabsTrigger>
+                    <TabsTrigger value="analytics" className="rounded-lg gap-2">
+                        <BarChart3 className="w-4 h-4 text-indigo-600" /> Detaylı Analiz
                     </TabsTrigger>
                     <TabsTrigger value="ai-ledger" className="rounded-lg gap-2">
                         <Coins className="w-4 h-4 text-amber-600" /> AI Maliyet Defteri
@@ -688,6 +696,14 @@ export default function AdminPanel() {
 
                 <TabsContent value="ai-ledger">
                     <AILedger />
+                </TabsContent>
+
+                <TabsContent value="questions">
+                    <AdvancedQuestionPool />
+                </TabsContent>
+
+                <TabsContent value="analytics">
+                    <CorporateAnalytics tenantId={selectedTenantId} />
                 </TabsContent>
 
                 {profile?.is_super_admin && (

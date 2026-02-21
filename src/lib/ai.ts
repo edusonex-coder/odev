@@ -139,7 +139,8 @@ async function makeAIRequest(
     temperature: number = 0.7,
     featureName: string = "general_chat",
     tenantName?: string,
-    personalityPrompt?: string
+    personalityPrompt?: string,
+    questionId?: string
 ) {
     // 0. CTO Directive: RAG Cache (Hafızadan Getir)
     const cacheableFeatures = ["homework_solver", "elite_vision_ocr"];
@@ -373,7 +374,8 @@ async function makeAIRequest(
                         latency_ms: latency,
                         status: 'success',
                         user_id: userData?.user?.id,
-                        tenant_id: tenantIdToSave
+                        tenant_id: tenantIdToSave,
+                        metadata: questionId ? { question_id: questionId } : {}
                     });
                 } catch (e) {
                     console.warn("Usage log background error:", e);
@@ -393,7 +395,8 @@ async function makeAIRequest(
                     feature_name: featureName,
                     latency_ms: Date.now() - startTime,
                     status: 'failed',
-                    error_message: error.message
+                    error_message: error.message,
+                    metadata: questionId ? { question_id: questionId } : {}
                 }).then(({ error }) => error && console.error("Usage log error:", error));
 
                 throw new Error(`Sistem şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin. (Hata: ${lastError})`);
@@ -409,12 +412,13 @@ export async function askAI(
     prompt: string,
     systemPrompt: string = "Sen yardımcı bir eğitim asistanısın.",
     featureName: string = "general_chat",
-    tenantName?: string
+    tenantName?: string,
+    questionId?: string
 ) {
     return makeAIRequest([
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
-    ], 0.7, featureName, tenantName);
+    ], 0.7, featureName, tenantName, undefined, questionId);
 }
 
 /**
@@ -459,7 +463,8 @@ export async function getAIResponse(
     messages: { role: string; content: string }[],
     tenantIdOrName?: string,
     personalityPrompt?: string,
-    featureName: string = "homework_solver"
+    featureName: string = "homework_solver",
+    questionId?: string
 ) {
     // Mesaj formatını unified yapıya uydur
     const systemMsg = messages.find(m => m.role === 'system')?.content || TEACHER_PROMPT;
@@ -470,7 +475,7 @@ export async function getAIResponse(
         ...userMsgs
     ];
 
-    return makeAIRequest(unifiedMessages, 0.7, featureName, tenantIdOrName, personalityPrompt);
+    return makeAIRequest(unifiedMessages, 0.7, featureName, tenantIdOrName, personalityPrompt, questionId);
 }
 
 /**

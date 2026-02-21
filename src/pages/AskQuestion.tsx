@@ -282,6 +282,8 @@ export default function AskQuestion() {
             [{ role: "user", content: aiPrompt }],
             profile?.tenant_id || undefined,
             undefined, // no personality prompt override here
+            "homework_solver",
+            qData.id // Pass questionId here!
           );
 
           // Çözümü kaydet
