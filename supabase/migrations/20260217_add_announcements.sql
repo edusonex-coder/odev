@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.announcements (
     is_active BOOLEAN DEFAULT TRUE,
     is_global BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    created_by UUID REFERENCES auth.users(id)
+    teacher_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 
 -- Kolonların varlığını garanti altına alalım (eğer tablo eskiden kaldıysa)

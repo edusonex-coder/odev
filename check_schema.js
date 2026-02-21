@@ -6,28 +6,16 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function check() {
-    console.log('--- Announcements Columns ---');
-    const { data: annCols, error: annErr } = await supabase
-        .from('announcements')
+    console.log('--- Assignment Submissions Columns ---');
+    const { data, error } = await supabase
+        .from('assignment_submissions')
         .select('*')
         .limit(1);
 
-    if (annErr) {
-        console.log('Error fetching announcements:', annErr.message);
+    if (error) {
+        console.log('Error:', error.message);
     } else {
-        console.log('Data sample:', annCols[0] ? Object.keys(annCols[0]) : 'No data');
-    }
-
-    console.log('\n--- Blogs Columns ---');
-    const { data: blogCols, error: blogErr } = await supabase
-        .from('blogs')
-        .select('*')
-        .limit(1);
-
-    if (blogErr) {
-        console.log('Error fetching blogs:', blogErr.message);
-    } else {
-        console.log('Data sample:', blogCols[0] ? Object.keys(blogCols[0]) : 'No data');
+        console.log('Columns:', data[0] ? Object.keys(data[0]) : 'No data');
     }
 }
 
