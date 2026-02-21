@@ -11,6 +11,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     LineChart, Line, PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 import {
     TrendingUp, Award, Users, Brain, School,
     ArrowUpRight, ArrowDownRight, Zap, Target
@@ -55,9 +57,8 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
             }
             const { data: tData } = await trafficQuery;
 
-            // Format data for chart
             const formattedTraffic = tData?.map(d => ({
-                name: new Date(d.day).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+                name: format(new Date(d.day), 'dd MMM', { locale: tr }),
                 questions: d.question_count
             })) || [];
             setTrafficData(formattedTraffic);
@@ -70,13 +71,29 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
             const { data: cData } = await costQuery;
             setCostData(cData || []);
 
-            // Summary Stats (Mock or simplified for demo)
-            setSummary({
-                totalQuestions: sData?.reduce((acc, curr) => acc + curr.question_count, 0) || 0,
-                activeStudents: 124, // Hardcoded for demo/placeholder
-                avgCost: 0.12,
-                conversionRate: 88
-            });
+            // 4. Real Summary Stats
+            let summaryQuery = supabase.from('corporate_analytics_summary').select('*');
+            if (targetTenant && targetTenant !== 'all') {
+                summaryQuery = summaryQuery.eq('tenant_id', targetTenant);
+            }
+            const { data: sumData } = await summaryQuery;
+
+            if (sumData && sumData.length > 0) {
+                // If 'all' is selected, sum up all tenants
+                const totals = sumData.reduce((acc, curr) => ({
+                    active_students: acc.active_students + (curr.active_students || 0),
+                    total_questions: acc.total_questions + (curr.total_questions || 0),
+                    resolved_questions: acc.resolved_questions + (curr.resolved_questions || 0),
+                    total_ai_cost: acc.total_ai_cost + (curr.total_ai_cost || 0)
+                }), { active_students: 0, total_questions: 0, resolved_questions: 0, total_ai_cost: 0 });
+
+                setSummary({
+                    totalQuestions: totals.total_questions,
+                    activeStudents: totals.active_students,
+                    avgCost: totals.total_questions > 0 ? (totals.total_ai_cost / totals.total_questions) : 0,
+                    conversionRate: totals.total_questions > 0 ? Math.round((totals.resolved_questions / totals.total_questions) * 100) : 100
+                });
+            }
 
         } catch (err) {
             console.error("Analytics fetch error:", err);
@@ -112,8 +129,8 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
                         <CardTitle className="text-3xl font-bold">{summary.totalQuestions}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center text-xs text-emerald-600 font-bold">
-                            <ArrowUpRight className="w-3 h-3" /> %12 Artış
+                        <div className="flex items-center text-xs text-muted-foreground font-medium">
+                            Toplam Etkinlik
                         </div>
                     </CardContent>
                     <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -129,8 +146,8 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
                         <CardTitle className="text-3xl font-bold">{summary.activeStudents}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center text-xs text-emerald-600 font-bold">
-                            <ArrowUpRight className="w-3 h-3" /> %5 Yeni
+                        <div className="flex items-center text-xs text-muted-foreground font-medium">
+                            Toplam Öğrenci
                         </div>
                     </CardContent>
                     <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -146,8 +163,8 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
                         <CardTitle className="text-3xl font-bold">${summary.avgCost.toFixed(2)}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center text-xs text-rose-600 font-bold">
-                            <ArrowDownRight className="w-3 h-3" /> -%2 Tasarruf
+                        <div className="flex items-center text-xs text-muted-foreground font-medium">
+                            Soru Başı Ortalama
                         </div>
                     </CardContent>
                     <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -163,8 +180,8 @@ export default function CorporateAnalytics({ tenantId }: { tenantId?: string }) 
                         <CardTitle className="text-3xl font-bold">%{summary.conversionRate}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center text-xs text-emerald-600 font-bold">
-                            <ArrowUpRight className="w-3 h-3" /> %2 İyileşme
+                        <div className="flex items-center text-xs text-muted-foreground font-medium">
+                            Sistemsel Başarı Skoru
                         </div>
                     </CardContent>
                     <div className="absolute top-0 right-0 p-4 opacity-5">

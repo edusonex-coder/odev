@@ -45,17 +45,21 @@ interface QuestionWithStats {
     total_ai_tokens: number;
 }
 
-export default function AdvancedQuestionPool() {
+export default function AdvancedQuestionPool({ tenantId }: { tenantId?: string }) {
     const { profile } = useAuth();
     const { toast } = useToast();
     const [questions, setQuestions] = useState<QuestionWithStats[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSubject, setSelectedSubject] = useState<string>("all");
-    const [selectedTenant, setSelectedTenant] = useState<string>("all");
+    const [selectedTenant, setSelectedTenant] = useState<string>(tenantId || "all");
     const [dateRange, setDateRange] = useState<string>("30");
     const [subjects, setSubjects] = useState<string[]>([]);
     const [tenants, setTenants] = useState<{ id: string, name: string }[]>([]);
+
+    useEffect(() => {
+        if (tenantId) setSelectedTenant(tenantId);
+    }, [tenantId]);
 
     useEffect(() => {
         fetchData();

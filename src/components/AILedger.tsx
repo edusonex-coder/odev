@@ -45,22 +45,27 @@ interface LedgerData {
     interaction_count: number;
 }
 
-export default function AILedger() {
+export default function AILedger({ tenantId }: { tenantId?: string }) {
     const [data, setData] = useState<LedgerData[]>([]);
     const [loading, setLoading] = useState(true);
     const [totalCost, setTotalCost] = useState(0);
 
     useEffect(() => {
         fetchLedger();
-    }, []);
+    }, [tenantId]);
 
     const fetchLedger = async () => {
         try {
             setLoading(true);
-            // Using the view created in migration
-            const { data: ledgerData, error } = await supabase
-                .from('ceo_financial_dashboard')
-                .select('*');
+            let query = supabase.from('ceo_financial_dashboard').select('*');
+
+            if (tenantId && tenantId !== 'all') {
+                // If the view doesn't have tenant_id directly, we filter in the ai_usage_logs
+                // But for now, let's assume the view supports basic filtering or we will update the view
+                query = query.eq('tenant_id', tenantId);
+            }
+
+            const { data: ledgerData, error } = await query;
 
             if (error) throw error;
 

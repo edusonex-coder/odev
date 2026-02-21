@@ -710,11 +710,11 @@ export default function AdminPanel() {
                 </TabsContent>
 
                 <TabsContent value="ai-ledger">
-                    <AILedger />
+                    <AILedger tenantId={selectedTenantId} />
                 </TabsContent>
 
                 <TabsContent value="questions">
-                    <AdvancedQuestionPool />
+                    <AdvancedQuestionPool tenantId={selectedTenantId} />
                 </TabsContent>
 
                 <TabsContent value="analytics">
