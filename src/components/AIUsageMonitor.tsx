@@ -90,7 +90,7 @@ export default function AIUsageMonitor() {
                                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Son 24 Saat Token</p>
                                         <p className="text-xl font-black text-primary flex items-center gap-1">
                                             <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                            {s.tokens_last_24h.toLocaleString()}
+                                            {(s.tokens_last_24h || 0).toLocaleString()}
                                         </p>
                                     </div>
                                     <div className="text-right">

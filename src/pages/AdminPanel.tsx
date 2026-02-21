@@ -58,6 +58,7 @@ interface UserProfile {
     id: string;
     full_name: string;
     role: 'student' | 'teacher' | 'admin' | 'parent';
+    is_super_admin: boolean;
     created_at: string;
     avatar_url: string | null;
     tenant_id: string | null;
@@ -545,8 +546,11 @@ export default function AdminPanel() {
                                                     </TableCell>
                                                     {profile?.is_super_admin && selectedTenantId === "all" && (
                                                         <TableCell>
-                                                            <Badge variant="secondary" className="font-medium">
-                                                                {user.tenants?.name || "Bağımsız"}
+                                                            <Badge
+                                                                variant={user.is_super_admin ? "default" : "secondary"}
+                                                                className={`font-medium ${user.is_super_admin ? "bg-indigo-600" : ""}`}
+                                                            >
+                                                                {user.is_super_admin ? "HOLDİNG" : (user.tenants?.name || "Bağımsız")}
                                                             </Badge>
                                                         </TableCell>
                                                     )}
