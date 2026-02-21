@@ -29,11 +29,12 @@ dist-ssr
 # Private files and reports
 .raporlar/
 docs/
+tests/
 _CONTEXT_FOR_AI.md
-supabase_doktor.py
-ui_doktor.js
+*doktor*
 .agent/
 .qodo/
+doctor_output.txt
 
 # Playwright
 playwright-report/
