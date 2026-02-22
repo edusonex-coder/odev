@@ -26,15 +26,36 @@ dist-ssr
 .env.local
 .env.*.local
 
-# Private files and reports
-.raporlar/
-docs/
-tests/
+# Private files and reports — SADECE YEREDE DURAN DOSYALAR
+# Bu klasördeki hiçbir şey GitHub'a gitmez
+_local/
+
+# Tek tek kök dizindeki private dosyalar (eskiden kalan, artık _local içinde)
 _CONTEXT_FOR_AI.md
+SECURITY_CONSTITUTION.md
+ERROR_LOG.md
+HAFIZA_TAZELEME.md
+DAILY_REPORT*.md
+PRE_FLIGHT_CHECK.py
 *doktor*
+*doktor*.py
+*doktor*.js
+diagnose_*.py
+diagnose_*.txt
+diagnose_db.py
+read_output.py
+test_regex.py
+check_schema.js
+ignore_err.txt
+doctor_output.txt
+*.txt
+
+# Docs klasörü (internal)
+docs/
+
+# Agent ve IDE
 .agent/
 .qodo/
-doctor_output.txt
 
 # Playwright
 playwright-report/
