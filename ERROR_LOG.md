@@ -41,3 +41,21 @@
 - `20260222_ADVISOR_FINAL_CLEANUP.sql` ile tüm bu uyarılar tek hamlede giderildi.
 - Eklentiler `extensions` şemasına taşındı.
 - Politikalar konsolide edildi.
+
+---
+
+## Hata Kaydı #003: Performance Advisor (Query Efficiency)
+**Tarih:** 22 Şubat 2026
+**Hata Tipi:** Performance Warning (Verimlilik Uyarısı)
+**Belirti:** Supabase Advisor'da "Auth RLS Initialization Plan" ve "Multiple Permissive Policies" uyarıları.
+
+### 1. Kök Neden Analizi
+- **Auth Initialization Plan:** `auth.uid()` doğrudan kullanıldığında Postgres her satır için bu fonksiyonu tekrar çalıştırır. `(SELECT auth.uid())` subquery yapısı ise bir kez çalıştırıp önbelleğe alır.
+- **Multiple Permissive Policies:** Bir tablo üzerinde aynı rol için (authenticated) birden fazla izin kuralı (SELECT için hem genel kural hem admin kuralı gibi) olması sorgu planlayıcısını yorar.
+
+### 2. Alınan Dersler
+- **Syntax Disiplini:** RLS kurallarında her zaman `(SELECT auth.uid())` kullanılması performansı %20-30 civarında artırabilir.
+- **Konsolidasyon:** "Admin her şeyi yapar" kuralı yerine, "Herkes okur, admin ek olarak siler/günceller" şeklinde yetki ayrımı (OR yerine farklı aksiyonlar) daha verimlidir.
+
+### 3. Çözüm Uygulaması
+- `20260222_ADVISOR_FINAL_CLEANUP.sql` v2 sürümüyle tüm tablolar (Knowledge Graph, Tenants vb.) tekil ve optimize edilmiş politikalara geçirildi.

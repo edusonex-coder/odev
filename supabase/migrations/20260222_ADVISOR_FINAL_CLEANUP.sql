@@ -12,43 +12,70 @@ CREATE SCHEMA IF NOT EXISTS extensions;
 ALTER EXTENSION pg_trgm SET SCHEMA extensions;
 
 -- 2. AI_KNOWLEDGE_GRAPH POLİTİKA KONSOLİDASYONU (Security & Performance)
--- Birden fazla 'permissive' politika yerine tek ve optimize edilmiş politika.
+-- Advisor uyarısı: "Multiple Permissive Policies" ve "Auth RLS Initialization Plan" gideriliyor.
 
--- Önce eskileri temizle
-DROP POLICY IF EXISTS "stability_knowledge_select_v3" ON public.ai_knowledge_graph;
-DROP POLICY IF EXISTS "stability_knowledge_insert_v3" ON public.ai_knowledge_graph;
-DROP POLICY IF EXISTS "stability_knowledge_all_v3" ON public.ai_knowledge_graph;
+-- Tüm eski/çakışan politikaları temizle
+DO $$ 
+DECLARE 
+    pol_name TEXT;
+BEGIN 
+    FOR pol_name IN (SELECT policyname FROM pg_policies WHERE tablename = 'ai_knowledge_graph' AND schemaname = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.ai_knowledge_graph', pol_name);
+    END LOOP;
+END $$;
 
--- Tek bir SELECT politikası (Herkes okuyabilir - RAG için)
-CREATE POLICY "advisor_knowledge_select_v1" 
+-- Tekil ve Optimize SELECT Politikası
+CREATE POLICY "advisor_v2_knowledge_select" 
 ON public.ai_knowledge_graph FOR SELECT 
 TO authenticated 
 USING (true);
 
--- Tek bir INSERT politikası (Authenticated kullanıcılar ekleyebilir, ama 'true' yerine kontrol ekleyelim)
-CREATE POLICY "advisor_knowledge_insert_v1" 
+-- Tekil ve Optimize INSERT Politikası
+CREATE POLICY "advisor_v2_knowledge_insert" 
 ON public.ai_knowledge_graph FOR INSERT 
 TO authenticated 
-WITH CHECK (auth.uid() IS NOT NULL); -- Advisor 'true' yerine bunu tercih eder
+WITH CHECK ( (SELECT auth.uid()) IS NOT NULL );
 
--- Tek bir ALL politikası (Sadece Adminler yönetebilir: UPDATE/DELETE)
-CREATE POLICY "advisor_knowledge_admin_v1" 
-ON public.ai_knowledge_graph FOR ALL 
+-- Tekil ve Optimize YÖNETİM Politikaları (Update ve Delete ayrı olmalı)
+CREATE POLICY "advisor_v2_knowledge_update" 
+ON public.ai_knowledge_graph FOR UPDATE
 TO authenticated 
-USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+USING ( 
+    (SELECT role FROM public.profiles WHERE id = (SELECT auth.uid())) = 'admin' 
+);
+
+CREATE POLICY "advisor_v2_knowledge_delete" 
+ON public.ai_knowledge_graph FOR DELETE
+TO authenticated 
+USING ( 
+    (SELECT role FROM public.profiles WHERE id = (SELECT auth.uid())) = 'admin' 
+);
 
 -- 3. SOLUTIONS INDEX TEMİZLİĞİ (Performance: Duplicate Index)
--- Aynı kolonu (question_id) hedefleyen mükerrer indexleri temizle.
 DROP INDEX IF EXISTS public.idx_solutions_question;
--- idx_solutions_question_id (20260222_ULTIMATE_DOCTOR_HEAL) kalacak.
+-- 20260222_ULTIMATE_DOCTOR_HEAL içindeki idx_solutions_question_id kalacak.
 
--- 4. TENANTS POLİTİKA DÜZENLEME (Performance: Multiple Permissive Policies)
-DROP POLICY IF EXISTS "p_tenants_sel" ON public.tenants;
--- Eğer başka bir tenants politikası varsa temizlenmiş oldu, şimdi tek bir tane tanımlayalım.
-CREATE POLICY "advisor_tenants_select_v1" 
+-- 4. TENANTS POLİTİKA KONSOLİDASYONU (Performance: Multiple Permissive Policies)
+DO $$ 
+DECLARE 
+    pol_name TEXT;
+BEGIN 
+    FOR pol_name IN (SELECT policyname FROM pg_policies WHERE tablename = 'tenants' AND schemaname = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.tenants', pol_name);
+    END LOOP;
+END $$;
+
+-- Tüm kullanıcılar kurum listesini görebilmeli (Giriş ekranı ve okul eşleşmesi için)
+CREATE POLICY "advisor_v2_tenants_select" 
 ON public.tenants FOR SELECT 
 TO authenticated 
 USING (true);
+
+-- Sadece Süper Adminler kurumları yönetebilir
+CREATE POLICY "advisor_v2_tenants_admin" 
+ON public.tenants FOR ALL 
+TO authenticated 
+USING ( public.is_super_admin() = true );
 
 COMMIT;
 
