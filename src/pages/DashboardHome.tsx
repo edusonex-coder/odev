@@ -385,24 +385,23 @@ export default function DashboardHome() {
     setJoining(true);
 
     try {
-      // 1. Kodu kontrol et
+      // 1. Kodu kontrol et (Güvenli Köprü üzerinden)
       const { data: classData, error: classError } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('invite_code', joinCode.toUpperCase())
-        .single();
+        .rpc('get_class_by_invite_code', { p_code: joinCode.toUpperCase() });
 
-      if (classError || !classData) {
+      if (classError || !classData || classData.length === 0) {
         throw new Error("Geçersiz davet kodu. Lütfen kontrol edip tekrar deneyin.");
       }
+
+      const TargetClass = classData[0];
 
       // 2. Halihazırda üye mi kontrol et
       const { data: existingMember } = await supabase
         .from('class_students')
         .select('id')
-        .eq('class_id', classData.id)
+        .eq('class_id', TargetClass.id)
         .eq('student_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existingMember) {
         throw new Error("Zaten bu sınıfın bir üyesisin! 😊");
@@ -412,7 +411,7 @@ export default function DashboardHome() {
       const { error: joinError } = await supabase
         .from('class_students')
         .insert({
-          class_id: classData.id,
+          class_id: TargetClass.id,
           student_id: user.id
         });
 
@@ -420,7 +419,7 @@ export default function DashboardHome() {
 
       toast({
         title: "Harika! 🎉",
-        description: `${classData.name} sınıfına başarıyla katıldın. Hoş geldin!`,
+        description: `${TargetClass.name} sınıfına başarıyla katıldın. Hoş geldin!`,
       });
       setJoinCode("");
       fetchUserClasses(); // Refresh classes

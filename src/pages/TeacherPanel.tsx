@@ -21,7 +21,8 @@ import {
   HelpCircle,
   Bell,
   Brain,
-  Megaphone
+  Megaphone,
+  RefreshCcw
 } from "lucide-react";
 import SEO from "@/components/SEO";
 import ClassInsightsPanel from "@/components/ClassInsightsPanel";
@@ -138,6 +139,8 @@ export default function TeacherPanel() {
   const { tenant } = useTenant();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
 
   // New Class Form State
   const [isNewClassOpen, setIsNewClassOpen] = useState(false);
@@ -178,8 +181,27 @@ export default function TeacherPanel() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchQuestions(), fetchClassesAndStudents()]);
+    await Promise.all([fetchQuestions(), fetchClassesAndStudents(), fetchApprovals()]);
     setLoading(false);
+  };
+
+  const fetchApprovals = async () => {
+    try {
+      setLoadingApprovals(true);
+      const { data, error } = await supabase
+        .from("ai_approvals")
+        .select("*")
+        .eq("status", "Bekliyor")
+        .eq("project_source", "odevgpt")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setApprovals(data || []);
+    } catch (err) {
+      console.error("Onaylar yüklenirken hata:", err);
+    } finally {
+      setLoadingApprovals(false);
+    }
   };
 
   const fetchQuestions = async () => {
@@ -356,6 +378,42 @@ export default function TeacherPanel() {
     }
   };
 
+  const handleApprove = async (approvalId: string) => {
+    try {
+      const { error } = await supabase
+        .from("ai_approvals")
+        .update({ status: "Onaylandı" })
+        .eq("id", approvalId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Onaylandı! 🚀",
+        description: "Ödev dağıtım kuyruğuna alındı. Birkaç saniye içinde sınıfa eklenecek.",
+      });
+
+      setApprovals(approvals.filter(a => a.id !== approvalId));
+    } catch (err: any) {
+      toast({ title: "Hata", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReject = async (approvalId: string) => {
+    try {
+      const { error } = await supabase
+        .from("ai_approvals")
+        .update({ status: "Reddedildi" })
+        .eq("id", approvalId);
+
+      if (error) throw error;
+
+      toast({ title: "Reddedildi", description: "Ödev taslağı kaldırıldı." });
+      setApprovals(approvals.filter(a => a.id !== approvalId));
+    } catch (err: any) {
+      toast({ title: "Hata", description: err.message, variant: "destructive" });
+    }
+  };
+
   const getPublicUrl = (path: string | null) => {
     if (!path) return null;
     return supabase.storage.from("question_images").getPublicUrl(path).data.publicUrl;
@@ -440,6 +498,10 @@ export default function TeacherPanel() {
               </TabsTrigger>
               <TabsTrigger value="messages" className="rounded-lg gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
                 <MessageSquare className="w-4 h-4" /> Mesajlar
+              </TabsTrigger>
+              <TabsTrigger value="approvals" className="rounded-lg gap-2 data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700">
+                <Sparkles className="w-4 h-4" /> AI Onayları
+                {approvals.length > 0 && <span className="ml-1 bg-violet-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{approvals.length}</span>}
               </TabsTrigger>
             </TabsList>
 
@@ -937,6 +999,85 @@ export default function TeacherPanel() {
               <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-xl font-bold text-gray-700">Yakında Geliyor</h3>
               <p className="text-muted-foreground">Mesajlaşma özelliği geliştirme aşamasındadır.</p>
+            </div>
+          </TabsContent>
+
+          {/* APPROVALS TAB */}
+          <TabsContent value="approvals" className="space-y-6">
+            <div className="grid gap-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-violet-600" /> AI Ödev Onayları
+                  </h2>
+                  <p className="text-muted-foreground">AI Action Engine tarafından hazırlanan ödev taslaklarını inceleyin ve onaylayın.</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={fetchApprovals} disabled={loadingApprovals}>
+                  {loadingApprovals ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {approvals.length === 0 ? (
+                <Card className="border-dashed py-20 bg-white">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-violet-50 text-violet-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Bekleyen Onay Yok</h3>
+                    <p className="text-muted-foreground">Şu an için onayınızı bekleyen bir AI ödevi bulunmuyor.</p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {approvals.map((app) => (
+                    <Card key={app.id} className="overflow-hidden border-2 border-violet-100 hover:border-violet-300 transition-all bg-white">
+                      <CardHeader className="bg-violet-50/50 pb-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <Badge variant="outline" className="bg-white text-violet-700 border-violet-200">
+                            {app.agent_name}
+                          </Badge>
+                          <Badge className={
+                            app.risk_level === 'Düşük' ? 'bg-green-100 text-green-700' :
+                              app.risk_level === 'Orta' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                          }>
+                            {app.risk_level} Risk
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg">{app.summary}</CardTitle>
+                        <CardDescription>
+                          {app.metadata?.class_name || "Sınıf Belirtilmedi"} • {formatDistanceToNow(new Date(app.created_at), { addSuffix: true, locale: tr })}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono max-h-[150px] overflow-y-auto mb-4">
+                          <p className="font-bold text-slate-500 mb-2">// ÖDEV İÇERİĞİ (PREVIEW)</p>
+                          {(() => {
+                            try {
+                              const preview = JSON.parse(app.content);
+                              return (Array.isArray(preview) ? preview : []).slice(0, 2).map((q: any, i: number) => (
+                                <div key={i} className="mb-2 last:mb-0">
+                                  <p className="text-violet-900">Q{i + 1}: {q.question}</p>
+                                </div>
+                              ));
+                            } catch {
+                              return <p className="text-slate-400 italic">İçerik okunamadı veya JSON değil.</p>;
+                            }
+                          })()}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(app.id)}>
+                            Reddet
+                          </Button>
+                          <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={() => handleApprove(app.id)}>
+                            Onayla & Dağıt
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
