@@ -204,7 +204,8 @@ END;
 $$;
 
 -- 5. is_my_student: Veli kendi öğrencisini kontrol eder
-DROP FUNCTION IF EXISTS public.is_my_student(UUID);
+-- CASCADE: profiles_final_select ve questions_final_select policy'leri bağımlı, yeniden kurulacak
+DROP FUNCTION IF EXISTS public.is_my_student(UUID) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_my_student(p_student_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -255,3 +256,26 @@ END;
 $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- =====================================================
+-- 8. POLICY RESTORE: is_my_student CASCADE sonrası
+--    silinen policy'leri yeniden kur.
+-- =====================================================
+DROP POLICY IF EXISTS "profiles_final_select" ON public.profiles;
+CREATE POLICY "profiles_final_select" ON public.profiles FOR SELECT TO authenticated
+USING (
+    (id = (SELECT auth.uid())) OR
+    public.is_iam_super_admin() OR
+    (tenant_id IS NOT NULL AND tenant_id = public.get_my_tenant_id()) OR
+    public.is_my_student(id)
+);
+
+DROP POLICY IF EXISTS "questions_final_select" ON public.questions;
+CREATE POLICY "questions_final_select" ON public.questions FOR SELECT TO authenticated
+USING (
+    public.is_iam_super_admin() OR
+    (student_id = (SELECT auth.uid())) OR
+    public.is_my_student(student_id) OR
+    (tenant_id IS NOT NULL AND tenant_id = public.get_my_tenant_id())
+);
+
