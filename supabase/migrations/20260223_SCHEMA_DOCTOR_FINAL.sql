@@ -33,7 +33,14 @@ END $$;
 -- =====================================================
 
 -- 2.1 CEO Financial Dashboard
-DROP VIEW IF EXISTS public.ceo_financial_dashboard CASCADE;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'ceo_financial_dashboard') THEN
+        DROP VIEW public.ceo_financial_dashboard CASCADE;
+    ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ceo_financial_dashboard') THEN
+        DROP TABLE public.ceo_financial_dashboard CASCADE;
+    END IF;
+END $$;
 CREATE OR REPLACE VIEW public.ceo_financial_dashboard
 WITH (security_invoker = true)
 AS
@@ -51,7 +58,16 @@ GROUP BY tenant_id, feature_name, model;
 GRANT SELECT ON public.ceo_financial_dashboard TO authenticated;
 
 -- 2.2 CEO Growth Metrics
-DROP VIEW IF EXISTS public.ceo_growth_metrics CASCADE;
+DO $$
+BEGIN
+    -- Tablo mı view mı bilmiyoruz, ikisini de kontrol et
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'ceo_growth_metrics') THEN
+        DROP VIEW public.ceo_growth_metrics CASCADE;
+    ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ceo_growth_metrics') THEN
+        DROP TABLE public.ceo_growth_metrics CASCADE;
+    END IF;
+END $$;
+
 CREATE OR REPLACE VIEW public.ceo_growth_metrics
 WITH (security_invoker = true)
 AS
@@ -68,7 +84,14 @@ GROUP BY platform;
 GRANT SELECT ON public.ceo_growth_metrics TO authenticated;
 
 -- 2.3 AI Usage Summary
-DROP VIEW IF EXISTS public.ai_usage_summary CASCADE;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'ai_usage_summary') THEN
+        DROP VIEW public.ai_usage_summary CASCADE;
+    ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_usage_summary') THEN
+        DROP TABLE public.ai_usage_summary CASCADE;
+    END IF;
+END $$;
 CREATE OR REPLACE VIEW public.ai_usage_summary
 WITH (security_invoker = true)
 AS
@@ -86,7 +109,14 @@ GROUP BY model, feature_name, date_trunc('day', created_at);
 GRANT SELECT ON public.ai_usage_summary TO authenticated;
 
 -- 2.4 Holding Performance Summary (Advisor: security_invoker fix)
-DROP VIEW IF EXISTS public.holding_performance_summary CASCADE;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'holding_performance_summary') THEN
+        DROP VIEW public.holding_performance_summary CASCADE;
+    ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'holding_performance_summary') THEN
+        DROP TABLE public.holding_performance_summary CASCADE;
+    END IF;
+END $$;
 CREATE OR REPLACE VIEW public.holding_performance_summary
 WITH (security_invoker = true)
 AS
@@ -167,8 +197,6 @@ CREATE TRIGGER trg_check_badges_on_solution
 AFTER INSERT ON public.solutions
 FOR EACH ROW EXECUTE FUNCTION public.check_and_award_badges();
 
-RAISE NOTICE '✅ Trigger trg_check_badges_on_solution yeniden oluşturuldu.';
-
 -- =====================================================
 -- 4. MARKETING_CAMPAIGNS: RLS Aktif Et
 -- =====================================================
@@ -179,15 +207,22 @@ USING (public.is_iam_super_admin());
 
 -- =====================================================
 -- 5. PARENT_REPORTS: RLS Aktif Et
--- =====================================================
+-- =====================================================-- [5] PARENT_REPORTS: RLS Aktif Et
 ALTER TABLE public.parent_reports ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "parent_reports_access" ON public.parent_reports;
-CREATE POLICY "parent_reports_access" ON public.parent_reports FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Parents can view their own reports" ON public.parent_reports;
+DROP POLICY IF EXISTS "System can insert reports" ON public.parent_reports;
+DROP POLICY IF EXISTS "System can update reports" ON public.parent_reports;
+CREATE POLICY "parent_reports_select" ON public.parent_reports FOR SELECT TO authenticated
 USING (
-    user_id = (SELECT auth.uid()) OR 
+    parent_id = (SELECT auth.uid()) OR 
     public.is_iam_super_admin() OR
-    public.is_my_student(user_id)
+    public.is_my_student(student_id)
 );
+CREATE POLICY "parent_reports_insert" ON public.parent_reports FOR INSERT TO authenticated
+WITH CHECK (true);
+CREATE POLICY "parent_reports_update" ON public.parent_reports FOR UPDATE TO authenticated
+USING (parent_id = (SELECT auth.uid()) OR public.is_iam_super_admin());
 
 -- =====================================================
 -- 6. NOTIFICATIONS: RLS Güncelle
