@@ -14,7 +14,6 @@ DROP FUNCTION IF EXISTS public.is_super_admin() CASCADE;
 -- CASCADE: Bu fonksiyona bağlı eski RLS policy varsa onları da kaldırır.
 -- Yeni sistemde is_iam_super_admin() kullanılıyor.
 
-RAISE NOTICE '✅ Ghost function is_super_admin() temizlendi.';
 
 -- =====================================================
 -- BÖLÜM 2: DEFAULT PRIVILEGES — Yeni tablolar için
@@ -38,7 +37,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE ON SEQUENCES TO authenticated;
 
-RAISE NOTICE '✅ DEFAULT PRIVILEGES güncellendi — yeni tablolar otomatik olarak anon erişimine kapalı.';
 
 -- =====================================================
 -- BÖLÜM 3: Kontrol Sorguları
