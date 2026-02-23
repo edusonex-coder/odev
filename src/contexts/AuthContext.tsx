@@ -49,16 +49,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const navigate = useNavigate();
 
     useEffect(() => {
+        let mounted = true;
+
         // Get initial session
         supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (!mounted) return;
+
             if (error) {
-                console.error("Auth session error:", error.message);
+                // Sadece kritik hataları göster, refresh hatalarını temizle
                 if (error.message.includes("refresh_token_not_found") || error.message.includes("Refresh Token Not Found")) {
+                    console.warn("Auth Session: Refresh token expired, signing out...");
+                    localStorage.removeItem('sb-' + (new URL(import.meta.env.VITE_SUPABASE_URL)).hostname.split('.')[0] + '-auth-token');
                     supabase.auth.signOut();
+                } else {
+                    console.error("Auth session error:", error.message);
                 }
             }
+
             setSession(session);
             setUser(session?.user ?? null);
+
             if (session?.user) {
                 fetchProfile(session.user.id);
             } else {
@@ -69,30 +79,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth changes
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth Event:", event);
+        } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            if (!mounted) return;
 
-            if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-                // Refresh cases
+            console.log(`Auth Event: ${event}`);
+
+            // Eğer event TOKEN_REFRESHED ise ve elimizdeki session zaten varsa, 
+            // state güncellemeye gerek yok (re-render'ı önler)
+            if (event === 'TOKEN_REFRESHED' && session?.access_token === currentSession?.access_token) {
+                return;
             }
 
-            // Handle invalid refresh token specifically
-            if (event === 'TOKEN_REFRESHED' === false && !session && event !== 'SIGNED_OUT') {
-                // Might be a failed refresh
-            }
+            setSession(currentSession);
+            setUser(currentSession?.user ?? null);
 
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
+            if (event === 'SIGNED_IN') {
+                if (currentSession?.user) {
+                    fetchProfile(currentSession.user.id);
+                }
+            } else if (event === 'SIGNED_OUT') {
                 setProfile(null);
                 setLoading(false);
+                // Hard cleanup for token errors
+                localStorage.removeItem('sb-' + (new URL(import.meta.env.VITE_SUPABASE_URL)).hostname.split('.')[0] + '-auth-token');
+            } else if (event === 'INITIAL_SESSION') {
+                if (currentSession?.user) {
+                    fetchProfile(currentSession.user.id);
+                } else {
+                    setLoading(false);
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
-    }, []);
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, [session?.access_token]);
 
     const fetchProfile = async (userId: string) => {
         setLoading(true);
