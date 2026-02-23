@@ -8,9 +8,9 @@ import { supabase } from "./supabase";
 export async function grantXP(userId: string, amount: number, reason: string = 'activity') {
     try {
         const { error } = await supabase.rpc('add_xp', {
-            user_id: userId,
-            amount: amount,
-            reason: reason
+            p_user_id: userId,
+            p_amount: amount,
+            p_reason: reason
         });
 
         if (error) {

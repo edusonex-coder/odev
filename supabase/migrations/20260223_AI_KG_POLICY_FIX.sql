@@ -7,7 +7,11 @@
 --       INSERT/UPDATE/DELETE için WITH CHECK kısıtlayıcı olmalı.
 -- =====================================================
 
--- Eski politikayı kaldır
+-- Eski politikaları temizle (Çakışmaları önlemek için)
+DROP POLICY IF EXISTS "ai_kg_select" ON public.ai_knowledge_graph;
+DROP POLICY IF EXISTS "ai_kg_insert" ON public.ai_knowledge_graph;
+DROP POLICY IF EXISTS "ai_kg_update" ON public.ai_knowledge_graph;
+DROP POLICY IF EXISTS "ai_kg_delete" ON public.ai_knowledge_graph;
 DROP POLICY IF EXISTS "ai_knowledge_graph_access" ON public.ai_knowledge_graph;
 DROP POLICY IF EXISTS "ai_knowledge_graph_unified_v4" ON public.ai_knowledge_graph;
 
@@ -16,12 +20,12 @@ CREATE POLICY "ai_kg_select" ON public.ai_knowledge_graph
 FOR SELECT TO authenticated
 USING (true);
 
--- INSERT: Sadece teacher/admin yazabilir
+-- INSERT: Öğrenci ve Velilerin de ekleme yapabilmesine izin ver (Sokratik etkileşimleri için)
 CREATE POLICY "ai_kg_insert" ON public.ai_knowledge_graph
 FOR INSERT TO authenticated
 WITH CHECK (
     public.is_iam_super_admin() OR
-    public.get_my_role() IN ('teacher', 'admin')
+    public.get_my_role() IN ('teacher', 'admin', 'student', 'parent')
 );
 
 -- UPDATE: Sadece teacher/admin güncelleyebilir
