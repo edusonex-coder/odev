@@ -259,7 +259,7 @@ export default function Leaderboard() {
                                                     </div>
                                                 </div>
                                                 <div className="text-3xl font-black text-slate-600 tabular-nums">
-                                                    {topThree[1].xp.toLocaleString()} <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">XP</span>
+                                                    {(topThree[1].xp || 0).toLocaleString()} <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">XP</span>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -324,7 +324,7 @@ export default function Leaderboard() {
                                                     </div>
 
                                                     <div className="text-6xl font-black text-slate-800 tabular-nums tracking-tighter">
-                                                        {topThree[0].xp.toLocaleString()} <span className="text-base text-yellow-600 font-black uppercase tracking-widest ml-1">XP</span>
+                                                        {(topThree[0].xp || 0).toLocaleString()} <span className="text-base text-yellow-600 font-black uppercase tracking-widest ml-1">XP</span>
                                                     </div>
                                                 </CardContent>
                                             </Card>
@@ -360,7 +360,7 @@ export default function Leaderboard() {
                                                     </div>
                                                 </div>
                                                 <div className="text-3xl font-black text-amber-700 tabular-nums">
-                                                    {topThree[2].xp.toLocaleString()} <span className="text-xs text-amber-500 font-bold uppercase tracking-widest">XP</span>
+                                                    {(topThree[2].xp || 0).toLocaleString()} <span className="text-xs text-amber-500 font-bold uppercase tracking-widest">XP</span>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -488,7 +488,7 @@ export default function Leaderboard() {
                                                 <td className="px-10 py-7 text-right">
                                                     <div className="flex flex-col items-end">
                                                         <span className="font-black text-3xl text-slate-900 tabular-nums tracking-tighter leading-none mb-1">
-                                                            {user.xp.toLocaleString()}
+                                                            {(user.xp || 0).toLocaleString()}
                                                         </span>
                                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">Puan</span>
                                                     </div>
@@ -546,13 +546,13 @@ export default function Leaderboard() {
                                     <div className="flex items-center gap-10 pr-4">
                                         <div className="text-right flex flex-col items-end">
                                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">SKORUN (XP)</span>
-                                            <span className="text-3xl font-black tabular-nums leading-none tracking-tighter text-white">{profile.xp.toLocaleString()}</span>
+                                            <span className="text-3xl font-black tabular-nums leading-none tracking-tighter text-white">{(profile.xp || 0).toLocaleString()}</span>
                                         </div>
                                         <div className="h-12 w-px bg-white/10" />
                                         <div className="text-right flex flex-col items-end">
                                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">HEDEF FARK</span>
                                             <span className="text-2xl font-black tabular-nums leading-none tracking-tighter text-indigo-400">
-                                                -{((users[myRank - 2]?.xp || 0) - profile.xp).toLocaleString()}
+                                                -{((users[myRank - 2]?.xp || 0) - (profile.xp || 0)).toLocaleString()}
                                             </span>
                                         </div>
                                         <Button

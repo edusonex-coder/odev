@@ -95,6 +95,9 @@ WITH CHECK (
 -- Yükleme: sadece authenticated. Okuma: public ok.
 -- =====================================================
 DROP POLICY IF EXISTS "Soru resimleri herkese açık" ON storage.objects;
+DROP POLICY IF EXISTS "question_images_read_public" ON storage.objects;
+DROP POLICY IF EXISTS "question_images_upload_auth" ON storage.objects;
+DROP POLICY IF EXISTS "question_images_delete_owner" ON storage.objects;
 
 -- Okuma: herkese (görseller public CDN'den yükleniyor)
 CREATE POLICY "question_images_read_public" ON storage.objects

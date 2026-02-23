@@ -698,7 +698,7 @@ export default function DashboardHome() {
                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium pt-1">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(assignment.due_date).toLocaleDateString()}
+                            {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : 'Tarih yok'}
                           </span>
                           {assignment.grade && (
                             <span className="flex items-center gap-1 text-green-600 font-bold">

@@ -26,11 +26,34 @@ dist-ssr
 .env.local
 .env.*.local
 
-# Private files and reports — SADECE YEREDE DURAN DOSYALAR
-# Bu klasördeki hiçbir şey GitHub'a gitmez
+# ============================================
+# PRIVATE / LOCAL — GitHub'a ASLA gitmeyecekler
+# ============================================
+
+# Tüm yerel belgeler, raporlar, scriptler burada
 _local/
 
-# Tek tek kök dizindeki private dosyalar (eskiden kalan, artık _local içinde)
+# Dahili raporlar & analizler
+.raporlar/
+
+# Dahili dokümantasyon & notlar
+docs/
+
+# Test çıktıları & raporları
+test-results/
+playwright-report/
+
+# E2E testler (projenin çalışması için gerekli değil)
+tests/
+
+# Debug & audit scriptleri
+scripts/
+
+# Test konfigürasyonları
+playwright.config.ts
+vitest.config.ts
+
+# Tek dosya gizlemeler
 _CONTEXT_FOR_AI.md
 SECURITY_CONSTITUTION.md
 ERROR_LOG.md
@@ -50,13 +73,6 @@ ignore_err.txt
 doctor_output.txt
 *.txt
 
-# Docs klasörü (internal)
-docs/
-
 # Agent ve IDE
 .agent/
 .qodo/
-
-# Playwright
-playwright-report/
-test-results/

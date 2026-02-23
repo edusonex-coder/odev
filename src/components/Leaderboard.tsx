@@ -149,7 +149,7 @@ export default function Leaderboard() {
                                                     </td>
                                                     <td className="py-4 text-right pr-8">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <span className="text-lg font-black text-slate-700">{entry.xp.toLocaleString()}</span>
+                                                            <span className="text-lg font-black text-slate-700">{(entry.xp || 0).toLocaleString()}</span>
                                                             <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
                                                         </div>
                                                     </td>
@@ -200,7 +200,7 @@ function PodiumCard({ entry, rank, color, delay, highlight }: { entry?: Leaderbo
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                     <Badge className="bg-indigo-500 text-white border-none px-3 font-bold">Lvl {entry.level}</Badge>
                     <div className="flex items-center gap-1 font-black text-amber-500">
-                        <span>{entry.xp.toLocaleString()}</span>
+                        <span>{(entry.xp || 0).toLocaleString()}</span>
                         <Zap className="w-3 h-3 fill-amber-500" />
                     </div>
                 </div>
