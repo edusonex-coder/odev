@@ -20,6 +20,9 @@ export default function SmartReminders({ assignments }: { assignments: Assignmen
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        // Only trigger if assignments is not empty and has pending items
+        if (!assignments || assignments.length === 0) return;
+
         const pending = assignments.filter(a => a.status === 'pending').slice(0, 3);
         if (pending.length > 0) {
             generateNudges(pending);

@@ -211,7 +211,9 @@ async function makeAIRequest(
                     .maybeSingle();
 
                 if (cached?.ai_response) {
-                    console.log(`[RAG CACHE HIT] Feature: ${featureName} - Memory used.`);
+                    if (import.meta.env.DEV) {
+                        console.log(`[RAG CACHE HIT] Feature: ${featureName} - Memory used.`);
+                    }
                     return cached.ai_response;
                 }
             } catch (e: any) {
@@ -278,7 +280,9 @@ async function makeAIRequest(
                 if (results && results.length > 0) {
                     ragContext = "\n\nSistem Hafızasından İlgili Bilgiler:\n" +
                         results.map(r => `- [${r.source_product}]: ${r.content_text}`).join("\n");
-                    console.log(`[RAG INJECTION] Found ${results.length} relevant entries.`);
+                    if (import.meta.env.DEV) {
+                        console.log(`[RAG INJECTION] Found ${results.length} relevant entries.`);
+                    }
                 }
             } catch (e) {
                 console.warn("RAG Context fetch failed:", e);
@@ -346,7 +350,16 @@ async function makeAIRequest(
         if (!provider.apiKey) continue;
 
         try {
-            console.log(`AI Request [${featureName}${tenantName ? ` - ${tenantName}` : ''}]: Attempting with ${provider.label}...`);
+            // Safety Check: Is the user still logged in? (Prevents ghost requests during unmount/logout)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session && !["general_chat", "announcement_enhancer"].includes(featureName)) {
+                // Sadece login gerektirmeyen veya çok kritik olmayan istekleri durdur
+                return null;
+            }
+
+            if (import.meta.env.DEV) {
+                console.log(`[AI DEBUG] Request [${featureName}]: Attempting with ${provider.label}...`);
+            }
 
             const response = await fetch(provider.url, {
                 method: "POST",
