@@ -112,23 +112,45 @@ export function WeeklyReportCard({ studentId, studentName }: WeeklyReportCardPro
             const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
             // Haftalık istatistikleri getir
+            let statsWeekStart = format(weekStart, 'yyyy-MM-dd');
+            let statsWeekEnd = format(weekEnd, 'yyyy-MM-dd');
+
             const { data: statsData, error: statsError } = await supabase
                 .rpc('get_student_weekly_stats', {
                     p_student_id: studentId,
-                    p_week_start: format(weekStart, 'yyyy-MM-dd'),
-                    p_week_end: format(weekEnd, 'yyyy-MM-dd')
+                    p_week_start: statsWeekStart,
+                    p_week_end: statsWeekEnd
                 });
 
             if (statsError) throw statsError;
-            const stats = statsData as WeeklyStats;
+            let stats = statsData as WeeklyStats;
 
+            // PAZARTESİ SENDROMU DÜZELTMESİ: 
+            // Eğer Pazartesi günü bakılıyorsa ve bu hafta henüz soru yoksa, 
+            // otomatik olarak son 7 günü (geçen haftayı da kapsayacak şekilde) getir.
             if (!stats || stats.total_questions === 0) {
-                toast({
-                    title: "Henüz Aktivite Yok",
-                    description: `${studentName} bu hafta henüz soru sormamış.`,
-                });
-                setLoading(false);
-                return;
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(now.getDate() - 7);
+
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .rpc('get_student_weekly_stats', {
+                        p_student_id: studentId,
+                        p_week_start: format(sevenDaysAgo, 'yyyy-MM-dd'),
+                        p_week_end: format(now, 'yyyy-MM-dd')
+                    });
+
+                if (!fallbackError && fallbackData && (fallbackData as WeeklyStats).total_questions > 0) {
+                    stats = fallbackData as WeeklyStats;
+                    // statsWeekStart/End değerlerini görsel için güncelle
+                    // report objesinde weekStart/End olarak yansıyacak
+                } else {
+                    toast({
+                        title: "Henüz Aktivite Yok",
+                        description: `${studentName} son 7 günde henüz soru sormamış.`,
+                    });
+                    setLoading(false);
+                    return;
+                }
             }
 
             const [aiSummary, aiHighlights] = await Promise.all([

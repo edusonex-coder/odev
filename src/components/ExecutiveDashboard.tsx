@@ -61,6 +61,22 @@ const ExecutiveDashboard = () => {
 
     const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'];
 
+    const totalRevenue = stats?.length > 0
+        ? stats.reduce((acc: number, curr: any) => acc + (Number(curr.total_revenue_usd) || 0), 0)
+        : 0;
+
+    const totalCost = stats?.length > 0
+        ? stats.reduce((acc: number, curr: any) => acc + (Number(curr.total_cost_usd) || 0), 0)
+        : 0;
+
+    const margin = totalRevenue > 0
+        ? (100 * (1 - (totalCost / totalRevenue))).toFixed(1)
+        : '0';
+
+    const totalConversions = growth?.length > 0
+        ? growth.reduce((acc: number, curr: any) => acc + (Number(curr.total_conversions) || 0), 0)
+        : 0;
+
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans selection:bg-indigo-500/30">
             {/* Header - Glassmorphism */}
@@ -93,10 +109,10 @@ const ExecutiveDashboard = () => {
             {/* Main Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[
-                    { icon: <DollarSign />, label: 'Top. Gelir', value: `$${stats?.length > 0 ? stats.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0).toFixed(2) : '0.00'}`, trend: '+25%', color: 'emerald' },
-                    { icon: <Activity />, label: 'Brüt Kar (Margin)', value: `%${(stats?.length > 0 && stats.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0) > 0) ? (100 * (1 - (stats.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0) / stats.reduce((acc: any, curr: any) => acc + curr.total_revenue_usd, 0)))).toFixed(1) : '0'}`, trend: 'Sağlıklı', color: 'indigo' },
-                    { icon: <Zap />, label: 'AI İşlem/Cost', value: `$${stats?.length > 0 ? stats.reduce((acc: any, curr: any) => acc + curr.total_cost_usd, 0).toFixed(2) : '0.00'}`, trend: '-5%', color: 'purple' },
-                    { icon: <Users />, label: 'Top. Dönüşüm', value: (growth?.length > 0 ? growth.reduce((acc: any, curr: any) => acc + (curr.total_conversions || 0), 0) : 0).toLocaleString() || '0', trend: '+45', color: 'blue' }
+                    { icon: <DollarSign />, label: 'Top. Gelir', value: `$${totalRevenue.toFixed(2)}`, trend: '+25%', color: 'emerald' },
+                    { icon: <Activity />, label: 'Brüt Kar (Margin)', value: `%${margin}`, trend: 'Sağlıklı', color: 'indigo' },
+                    { icon: <Zap />, label: 'AI İşlem/Cost', value: `$${totalCost.toFixed(2)}`, trend: '-5%', color: 'purple' },
+                    { icon: <Users />, label: 'Top. Dönüşüm', value: totalConversions.toLocaleString(), trend: '+45', color: 'blue' }
                 ].map((item, idx) => (
                     <motion.div
                         key={idx}
